@@ -9,7 +9,7 @@ module LogStash module Filters module Util
     end
 
     def connect(
-          connection_string = "jdbc:derby:memory:lookupdb;create=true",
+          connection_string = "jdbc:derby:memory:localdb;create=true",
           driver_class = "org.apache.derby.jdbc.EmbeddedDriver",
           driver_library = nil,
           user = nil,
@@ -18,13 +18,23 @@ module LogStash module Filters module Util
       @db.test_connection
     end
 
+    def disconnect
+      @db.disconnect
+    end
+
     # -----------------
     private
 
     def pre_connect(connection_string, driver_class, driver_library, user, password)
       require driver_library if driver_library
       Sequel::JDBC.load_driver(driver_class)
-      @db = Sequel.connect(connection_string, :user => user, :password =>  password.nil? ? nil : password.value)
+      if user && password
+        @db = Sequel.connect(connection_string, :user => user, :password =>  password.value)
+      elsif user
+        @db = Sequel.connect(connection_string, :user => user)
+      else
+        @db = Sequel.connect(connection_string)
+      end
     end
 
     def post_initialize()

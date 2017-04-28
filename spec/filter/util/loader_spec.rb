@@ -2,7 +2,7 @@ require "logstash/devutils/rspec/spec_helper"
 require "logstash/filters/util/loader"
 
 describe LogStash::Filters::Util::Loader do
-  let(:table) { "servers" }
+  let(:local_table) { "servers" }
   let(:options) do
     {
       "jdbc_driver_class" => "org.postgresql.Driver",
@@ -10,10 +10,11 @@ describe LogStash::Filters::Util::Loader do
       "query" => "select ip, name, location from INTERNAL.SERVERS",
       "jdbc_user" => "bob",
       "jdbc_password" => "letmein",
-      "max_rows" => 2000
+      "max_rows" => 2000,
+      "local_table" => local_table
     }
   end
-  subject { described_class.new(table, options) }
+  subject { described_class.new(options) }
 
   context "when correct options are given" do
     it "validation succeeds" do
@@ -33,7 +34,7 @@ describe LogStash::Filters::Util::Loader do
 
     it "validation fails" do
       expect(subject.valid?).to be_falsey
-      expect(subject.formatted_errors).to eq("The options for 'servers' must include a 'query' string, The 'max_rows' option for 'servers' must be an integer, The 'jdbc_driver_class' option for 'servers' must be a string, The 'jdbc_connection_string' option for 'servers' must be a string")
+      expect(subject.formatted_errors).to eq("The options must include a 'local_table' string, The options for '' must include a 'query' string, The 'max_rows' option for '' must be an integer, The 'jdbc_driver_class' option for '' must be a string, The 'jdbc_connection_string' option for '' must be a string")
     end
   end
 

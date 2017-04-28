@@ -1,19 +1,29 @@
+require_relative 'db_object'
+
 module LogStash module Filters module Util
   class SingleLoadRunner
 
-    attr_reader :local, :loaders, :preloaders, :postloaders
+    attr_reader :local, :loaders, :preloaders
 
-    def initialize(local, loaders, preloaders, postloaders)
+    def initialize(local, loaders, preloaders)
       @local = local
       @loaders = loaders
-      @preloaders = preloaders
-      @postloaders = postloaders
+      @preloaders = []
+      preloaders.map do |pre|
+        dbo = DbObject.new(pre)
+        @preloaders << dbo
+        if dbo.table?
+          hash = dbo.as_temp_table_opts
+          _dbo = DbObject.new(hash)
+          @preloaders << _dbo if _dbo.valid?
+        end
+      end
+      @preloaders.sort!
     end
 
     def initial_load
       do_preload
       local.populate_all(loaders)
-      do_postload
     end
 
     def repeated_load
@@ -23,18 +33,16 @@ module LogStash module Filters module Util
       repeated_load
     end
 
+    def close
+      local.disconnect
+    end
+
     # ----------------
     private
 
     def do_preload
-      preloaders.each do |statement|
-        local.run(statement)
-      end
-    end
-
-    def do_postload
-      postloaders.each do |statement|
-        local.run(statement)
+      preloaders.each do |db_object|
+        local.build_db_object(db_object)
       end
     end
   end

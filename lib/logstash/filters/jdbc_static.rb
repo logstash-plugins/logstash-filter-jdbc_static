@@ -2,28 +2,15 @@
 require "logstash/filters/base"
 require "logstash/namespace"
 require_relative "util/loader"
+require_relative "util/db_object"
 require_relative "util/repeating_load_runner"
 require_relative "util/lookup_processor"
 
-# This filter executes a SQL query and store the result set in the field
-# specified as `target`.
-# It will cache the results locally in an LRU cache with expiry
-#
-# For example you can load a row based on an id from in the event
+# This filter can do multiple enhancements to an event in one pass.
+# Define multiple loader sources and multiple lookup targets.
 #
 # [source,ruby]
-# filter {
-#   jdbc_static {
-#     jdbc_driver_library => "/path/to/mysql-connector-java-5.1.34-bin.jar"
-#     jdbc_driver_class => "com.mysql.jdbc.Driver"
-#     jdbc_connection_string => ""jdbc:mysql://localhost:3306/mydatabase"
-#     jdbc_user => "me"
-#     jdbc_password => "secret"
-#     statement => "select * from WORLD.COUNTRY WHERE Code = :code"
-#     parameters => { "code" => "country_code"}
-#     target => "country_details"
-#   }
-# }
+
 #
 module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   config_name "jdbc_static"
@@ -34,53 +21,56 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   # being fetched.
   # You can also specify alternate JDBC strings to use if there is more than one remote database
   # For example:
-  # loaders => {
-  #   "country_details" => {
-  #     "query" => "select code, name from WORLD.COUNTRY",
+  # loaders => [
+  #   {
+  #     "id" => "country_details"
+  #     "query" => "select code, name from WORLD.COUNTRY"
   #     "max_rows" => 2000
+  #     local_table => "country"
   #   },
-  #   "servers" => {
-  #     "jdbc_driver_class" => "org.postgresql.Driver",
-  #     "jdbc_connection_string" => "jdbc:postgres://user:password@remotedb/infra"
-  #     "query" => "select ip, name, location from INTERNAL.SERVERS",
+  #   {
+  #     id => "servers_load"
+  #     query => "select id, ip, name, location from INTERNAL.SERVERS"
+  #     local_table => "servers"
   #   }
-  # }
-  config :loaders, :validate => :hash, :required => true
+  # ]
+  # This is optional. You can provide a pre-populated local database server then no initial loaders are needed.
+  config :loaders, :required => true, :default => [], :validate => [LogStash::Filters::Util::Loader]
 
-  # Define an array of SQL DDL statements to execute when the plugin first starts.
-  # These will usually be the creational SQL to setup the local in-memory tables.
+  # Define an array of Database Objects to create when the plugin first starts.
+  # These will usually be the definitions to setup the local in-memory tables.
   # For example:
-  # before_load_sql => [
-  #   "CREATE TABLE country (code VARCHAR(3) NOT NULL, name VARCHAR(32) NOT NULL)",
-  #   "CREATE TABLE servers (ip VARCHAR(16) NOT NULL, name VARCHAR(32) NOT NULL, location VARCHAR(32) NOT NULL)",
-  #   "CREATE INDEX country_code_index ON country(code)",
-  #   "CREATE INDEX servers_ip_index ON servers(ip)"
+  # local_db_objects => [
+  #   {type => "table", name => "servers", columns => [["id", "INTEGER"], ["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
+  #   {type => "index", name => "servers_idx", table => "servers", columns => ["ip"]}
   # ]
   # NOTE: Important! Tables created here must have the same names as those used in the `loaders` and
   # `lookups` configuration options
-  config :before_load_sql, :validate => :array, :default => []
+  config :local_db_objects, :required => false, :default => [], :validate => [LogStash::Filters::Util::DbObject]
 
-  # Define an array of SQL DDL statements to execute after the remote data is fetched
-  # and inserted locally. If the CRON schedule is specifed, the remote data is periodically
-  # fetched and so these SQL statements will be executed repeatedly.
-  config :after_load_sql, :validate => :array, :default => []
-
-  # Define the set (Hash) of enhancement lookups to be applied to an event
-  # The key is the target field and the value is a hash of the query string and an optional
-  # parameter hash. Target is overwritten if existing.
+  # Define the list (Array) of enhancement lookups to be applied to an event
+  # Each entry is a hash of the query string, the target field and value and a
+  # parameter hash. Target is overwritten if existing. Target is optional,
+  # if omitted the lookup results will be written to the root of the event like this:
+  # event.set(<column name (or alias)>, <column value>)
   # Use parameters to have this plugin put values from the event into the query.
+  # The parameter maps the symbol used in the query string to the field name in the event.
+  # NOTE: when using a query string that includes the LIKE keyword make sure that
+  # you provide a Logstash Event sprintf pattern with added wildcards.
   # For example:
-  # lookups => {
-  #   "country_details" => {
+  # lookups => [
+  #   {
   #     "query" => "select * from country WHERE code = :code",
   #     "parameters" => {"code" => "country_code"}
+  #     "target" => "country_details"
   #   },
-  #   "servers" => {
-  #     "query" => "select * from servers WHERE ip = :ip",
-  #     "parameters" => {"ip" => "ip"}
+  #   {
+  #     "query" => "select ip, name from servers WHERE ip LIKE :ip",
+  #     "parameters" => {"ip" => "%{[response][ip]}%"}
+  #     "target" => "servers"
   #   }
-  # }
-  config :lookups, :validate => :hash, :required => true
+  # ]
+  config :lookups, :required => true, :validate => [LogStash::Filters::Util::Lookup]
 
   # Schedule of when to periodically run loaders, in Cron format
   # for example: "* * * * *" (execute query every minute, on the minute)
@@ -95,20 +85,47 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   # Append values to the `tags` field if no record was found and default values were used
   config :tag_on_default_use, :validate => :array, :default => ["_jdbcstreamingdefaultsused"]
 
-  # JDBC driver library path to third party driver library.
+  # Remote Load DB JDBC driver library path to third party driver library.
   config :jdbc_driver_library, :validate => :path
 
-  # JDBC driver class to load, for example "oracle.jdbc.OracleDriver" or "org.apache.derby.jdbc.ClientDriver"
+  # Remote Load DB JDBC driver class to load, for example "oracle.jdbc.OracleDriver" or "org.apache.derby.jdbc.ClientDriver"
   config :jdbc_driver_class, :validate => :string, :required => true
 
-  # JDBC connection string
+  # Remote Load DB JDBC connection string
   config :jdbc_connection_string, :validate => :string, :required => true
 
-  # JDBC user
+  # Remote Load DB JDBC user
   config :jdbc_user, :validate => :string
 
-  # JDBC password
+  # Remote Load DB JDBC password
   config :jdbc_password, :validate => :password
+
+  # Local Lookup DB JDBC driver class to load, for example "org.apache.derby.jdbc.ClientDriver"
+  config :lookup_jdbc_driver_class, :validate => :string, :required => false, :default => "org.apache.derby.jdbc.EmbeddedDriver"
+
+  # Local Lookup DB JDBC driver library path to third party driver library.
+  config :lookup_jdbc_driver_library, :validate => :path, :required => false
+
+  # Local Lookup DB JDBC connection string
+  config :lookup_jdbc_connection_string, :validate => :string, :required => false, :default => "jdbc:derby:memory:localdb;create=true"
+
+  class << self
+    alias_method :old_validate_value, :validate_value
+
+    def validate_value(value, validator)
+
+      result = value
+      if validator.is_a?(Array) && validator.first.is_a?(Class)
+        validation_error = validator.first.validate(value)
+        unless validation_error.nil?
+          return false, validation_error
+        end
+      else
+        return old_validate_value(value, validator)
+      end
+      [true, result]
+    end
+  end
 
   public
 
@@ -129,13 +146,20 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     @processor.local
   end
   # ---------------------
+
+
+  def stop
+    @scheduler.stop if @scheduler
+    @parsed_loaders.each(&:close)
+    @loader_runner.close
+  end
+
   private
 
-
   def prepare_runner
-    @parsed_loaders = @loaders.map do |table, options|
+    @parsed_loaders = @loaders.map do |options|
       add_plugin_configs(options)
-      loader = Util::Loader.new(table, options)
+      loader = Util::Loader.new(options)
       loader.build_remote_db
       loader
     end
@@ -145,14 +169,14 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     if @schedule
       require "rufus/scheduler"
       @loader_runner = Util::RepeatingLoadRunner.new(
-          @processor.local, @parsed_loaders, @before_load_sql, @after_load_sql)
+          @processor.local, @parsed_loaders, @local_db_objects)
 
       @scheduler = Rufus::Scheduler.new(:max_work_threads => 1)
       @scheduler.cron(@schedule, @loader_runner)
       @scheduler.join
     else
       @loader_runner = Util::SingleLoadRunner.new(
-          @processor.local, @parsed_loaders, @before_load_sql, @after_load_sql)
+          @processor.local, @parsed_loaders, @local_db_objects)
     end
   end
 
@@ -163,8 +187,31 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     if @tag_on_default_use && !@tag_on_default_use.empty? && !options.key?("tag_on_default_use")
       options["tag_on_default_use"] = @tag_on_default_use
     end
+    options["lookup_jdbc_driver_class"] = @lookup_jdbc_driver_class
+    options["lookup_jdbc_driver_library"] = @lookup_jdbc_driver_library
+    options["lookup_jdbc_connection_string"] = @lookup_jdbc_connection_string
     options
   end
+
+  def add_plugin_configs(options)
+    if @jdbc_driver_library
+      options["jdbc_driver_library"] = @jdbc_driver_library
+    end
+    if @jdbc_driver_class
+      options["jdbc_driver_class"] = @jdbc_driver_class
+    end
+    if @jdbc_connection_string
+      options["jdbc_connection_string"] = @jdbc_connection_string
+    end
+    if @jdbc_user
+      options["jdbc_user"] = @jdbc_user
+    end
+    if @jdbc_password
+      options["jdbc_password"] = @jdbc_password
+    end
+  end
+end end end
+__END__
 
   def add_plugin_configs(options)
     if @jdbc_driver_library && !options.key?("jdbc_driver_library")
@@ -183,4 +230,27 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
       options["jdbc_password"] = @jdbc_password
     end
   end
-end end end
+
+
+VARCHAR java.lang.String  setString updateString
+CHAR  java.lang.String  setString updateString
+LONGVARCHAR java.lang.String  setString updateString
+BIT boolean setBoolean  updateBoolean
+NUMERIC java.math.BigDecimal  setBigDecimal updateBigDecimal
+TINYINT byte  setByte updateByte
+SMALLINT  short setShort  updateShort
+INTEGER int setInt  updateInt
+BIGINT  long  setLong updateLong
+REAL  float setFloat  updateFloat
+FLOAT float setFloat  updateFloat
+DOUBLE  double  setDouble updateDouble
+VARBINARY byte[ ] setBytes  updateBytes
+BINARY  byte[ ] setBytes  updateBytes
+DATE  java.sql.Date setDate updateDate
+TIME  java.sql.Time setTime updateTime
+TIMESTAMP java.sql.Timestamp  setTimestamp  updateTimestamp
+CLOB  java.sql.Clob setClob updateClob
+BLOB  java.sql.Blob setBlob updateBlob
+ARRAY java.sql.Array  setARRAY  updateARRAY
+REF java.sql.Ref  SetRef  updateRef
+STRUCT  java.sql.Struct SetStruct updateStruct

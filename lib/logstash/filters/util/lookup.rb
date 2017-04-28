@@ -2,10 +2,43 @@ require_relative "lookup_result"
 
 module LogStash module Filters module Util
   class Lookup
+    class Sprintfier
+      def initialize(param)
+        @param = param
+      end
+
+      def fetch(event)
+        event.sprintf(@param)
+      end
+    end
+
+    class Getfier
+      def initialize(param)
+        @param = param
+      end
+
+      def fetch(event)
+        event.get(@param)
+      end
+    end
+
     attr_reader :target, :query, :parameters
 
-    def initialize(target, options, globals, logger)
-      @target = target
+    def self.validate(array_of_options)
+      errors = []
+      array_of_options.each_with_index do |options, i|
+        instance = new(options, {}, Object.new, "lookup-#{i.next}")
+        unless instance.valid?
+          errors << instance.formatted_errors
+        end
+      end
+      return nil if errors.empty?
+      errors.join("; ")
+    end
+
+    def initialize(options, globals, logger, default_id)
+      @target = options["target"]
+      @id = target || default_id
       @options = options
       @globals = globals
       @logger = logger
@@ -79,27 +112,31 @@ module LogStash module Filters module Util
 
     def prepare_parameters_from_event(event)
       @symbol_parameters.inject({}) do |hash,(k,v)|
-        value = event.get(event.sprintf(v))
+        value = v.fetch(event)
         hash[k] = value.is_a?(::LogStash::Timestamp) ? value.time : value
         hash
       end
+    end
+
+    def sprintf_or_get(v)
+      v.include?("%{") ? Sprintfier.new(v) : Getfier.new(v)
     end
 
     def parse_options
       parsed = true
       @query = @options["query"]
       unless @query && @query.is_a?(String)
-        @option_errors << "The options for '#{@target}' must include a 'query' string"
+        @option_errors << "The options for '#{@id}' must include a 'query' string"
         parsed = false
       end
 
       @parameters = @options["parameters"]
       if @parameters
         if !@parameters.is_a?(Hash)
-          @option_errors << "The 'parameters' option for '#{@target}' must be a Hash"
+          @option_errors << "The 'parameters' option for '#{@id}' must be a Hash"
           parsed = false
         else
-          @symbol_parameters = @parameters.inject({}) {|hash,(k,v)| hash[k.to_sym] = v ; hash }
+          @symbol_parameters = @parameters.inject({}) {|hash,(k,v)| hash[k.to_sym] = sprintf_or_get(v) ; hash }
         end
       end
 

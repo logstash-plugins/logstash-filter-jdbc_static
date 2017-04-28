@@ -1,26 +1,11 @@
+require_relative "validatable"
 require_relative "read_only_database"
 
 module LogStash module Filters module Util
-  class Loader
-    attr_reader :table, :query, :max_rows
+  class Loader < Validatable
+    attr_reader :table, :temp_table, :query, :max_rows
     attr_reader :connection_string, :driver_library, :driver_class
     attr_reader :user, :password
-
-    def initialize(table, options)
-      @table = table.to_sym
-      @options = options
-      @valid = false
-      @option_errors = []
-      parse_options
-    end
-
-    def valid?
-      @valid
-    end
-
-    def formatted_errors
-      @option_errors.join(", ")
-    end
 
     def build_remote_db
       @remote = ReadOnlyDatabase.new()
@@ -28,15 +13,41 @@ module LogStash module Filters module Util
     end
 
     def fetch
-      # db.dataset.limit(10).sql.sub(db.dataset.select.sql, "")
-      @remote.query(query).take(max_rows)
+      if @remote.count(query) > max_rows
+        # logger.error max_rows exceeded
+      else
+        @remote.query(query)
+      end
+    end
+
+    def close
+      @remote.disconnect
     end
 
     # ------------------
     private
 
+    def pre_initialize(options)
+      @table = options["local_table"]
+    end
+
+    def post_initialize
+      if valid?
+        @temp_table = "#{TEMP_TABLE_PREFIX}#{@table}".to_sym
+        @table = @table.to_sym
+      end
+    end
+
     def parse_options
       parsed = true
+
+      unless @table && @table.is_a?(String)
+        @option_errors << "The options must include a 'local_table' string"
+        parsed = false
+      end
+
+      @id = @options.fetch("id", @table)
+
       @query = @options["query"]
       unless @query && @query.is_a?(String)
         @option_errors << "The options for '#{@table}' must include a 'query' string"
@@ -52,7 +63,7 @@ module LogStash module Filters module Util
           @max_rows = @max_rows.to_i
         end
       else
-        @max_rows = 500
+        @max_rows = 1_000_000
       end
 
       @driver_library = @options["jdbc_driver_library"]
