@@ -129,7 +129,6 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   public
 
   def register
-    # @symbol_parameters = @parameters.inject({}) {|hash,(k,v)| hash[k.to_sym] = v ; hash }
     prepare_runner
     @loader_runner.initial_load
   end
