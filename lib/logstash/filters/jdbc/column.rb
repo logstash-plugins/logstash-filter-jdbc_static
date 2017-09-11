@@ -1,10 +1,9 @@
 require_relative "validatable"
 
-module LogStash module Filters module Util
+module LogStash module Filters module Jdbc
   class Column < Validatable
     attr_reader :name, :datatype
 
-    # ------------------
     private
 
     def post_initialize

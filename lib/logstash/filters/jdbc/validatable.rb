@@ -1,4 +1,6 @@
-module LogStash module Filters module Util
+# encoding: utf-8
+
+module LogStash module Filters module Jdbc
   class Validatable
     def self.validate(array_of_options)
       errors = []
@@ -29,7 +31,6 @@ module LogStash module Filters module Util
       @option_errors.join(", ")
     end
 
-    # ------------------
     private
 
     def pre_initialize(options)

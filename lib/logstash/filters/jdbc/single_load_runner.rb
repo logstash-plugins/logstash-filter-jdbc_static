@@ -1,6 +1,6 @@
 require_relative 'db_object'
 
-module LogStash module Filters module Util
+module LogStash module Filters module Jdbc
   class SingleLoadRunner
 
     attr_reader :local, :loaders, :preloaders
@@ -37,7 +37,6 @@ module LogStash module Filters module Util
       local.disconnect
     end
 
-    # ----------------
     private
 
     def do_preload

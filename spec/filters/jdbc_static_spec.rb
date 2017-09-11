@@ -1,3 +1,4 @@
+# encoding: utf-8
 require_relative "spec_helper"
 
 require "logstash/devutils/rspec/spec_helper"
@@ -11,7 +12,6 @@ module LogStash module Filters
     let(:db1) { ::Sequel.connect("jdbc:derby:memory:testdb;create=true", :user=> nil, :password=> nil) }
     let(:test_loader) { "SELECT * FROM reference_table" }
     let(:test_records) { db1[test_loader].all }
-    let(:lookup_db) { "lookupdb" }
 
     let(:local_db_objects) do
       [
@@ -30,7 +30,7 @@ module LogStash module Filters
           }
         ],
         "local_db_objects" => local_db_objects,
-        "lookups" => [
+        "local_lookups" => [
           {
             "query" => "select * from servers WHERE ip LIKE :ip",
             "parameters" => {"ip" => "%%{[ip]}"},
@@ -40,24 +40,13 @@ module LogStash module Filters
       }
     end
 
-    let(:client_jar_path) { ::File.join(BASE_DERBY_DIR, "derbyclient.jar") }
-
     let(:mixin_settings) do
       { "jdbc_user" => ENV['USER'], "jdbc_driver_class" => "org.apache.derby.jdbc.EmbeddedDriver",
-        "jdbc_connection_string" => "jdbc:derby:memory:testdb;create=true",
-        "lookup_jdbc_driver_class" => "org.apache.derby.jdbc.ClientDriver",
-        "lookup_jdbc_driver_library" => client_jar_path,
-        "lookup_jdbc_connection_string" => "jdbc:derby://localhost:1527/#{lookup_db};create=true" }
+        "jdbc_connection_string" => "jdbc:derby:memory:testdb;create=true" }
     end
     let(:plugin) { JdbcStatic.new(mixin_settings.merge(settings)) }
 
-    after do
-      plugin.stop
-      ServerProcessHelpers.jdbc_static_stop_derby_server(lookup_db)
-    end
-
     before do
-      ServerProcessHelpers.jdbc_static_start_derby_server
       db1.drop_table(:reference_table) rescue nil
       db1.create_table :reference_table do
         String :ip
@@ -70,6 +59,8 @@ module LogStash module Filters
 
       plugin.register
     end
+
+    after { plugin.stop }
 
     let(:event)      { ::LogStash::Event.new("message" => "some text", "ip" => ipaddr) }
 

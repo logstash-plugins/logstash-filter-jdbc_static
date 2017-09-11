@@ -1,7 +1,7 @@
 require "logstash/devutils/rspec/spec_helper"
-require "logstash/filters/util/loader"
+require "logstash/filters/jdbc/loader"
 
-describe LogStash::Filters::Util::Loader do
+describe LogStash::Filters::Jdbc::Loader do
   let(:local_table) { "servers" }
   let(:options) do
     {

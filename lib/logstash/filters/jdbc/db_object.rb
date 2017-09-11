@@ -1,14 +1,14 @@
 require_relative "validatable"
 require_relative "column"
 
-module LogStash module Filters module Util
+module LogStash module Filters module Jdbc
 
   TEMP_TABLE_PREFIX = "temp_".freeze
+  DB_OBJECT_TYPES = ["table".freeze, "index".freeze].freeze
 
   class DbObject < Validatable
     #   {type => "table", name => "servers", columns => [["ip", "text"], ["name", "text"], ["location", "text"]]},
     #   {type => "index", name => "servers_idx", table => "servers", columns => ["ip"]}
-
 
     attr_reader :type, :name, :table, :columns, :builder
 
@@ -63,7 +63,6 @@ module LogStash module Filters module Util
       {"name" => "#{TEMP_TABLE_PREFIX}#{@name}", "type" => @type, "columns" => @columns.map(&:to_array)}
     end
 
-    # ------------------
     private
 
     def post_initialize
@@ -74,10 +73,17 @@ module LogStash module Filters module Util
     end
 
     def parse_options
+      if !@options.is_a?(Hash)
+        @option_errors << "DbObject options must be a Hash"
+        @valid = false
+        return
+      end
+
       parsed = true
       @name = @options["name"]
       unless @name && @name.is_a?(String)
-        @option_errors << "The options must include a 'name' string"
+        @option_errors << "DbObject options must include a 'name' string"
+        @name = "unnamed"
         parsed = false
       end
 
@@ -89,46 +95,52 @@ module LogStash module Filters module Util
 
       @type = @options["type"]
       unless @type && @type.is_a?(String)
-        @option_errors << "The options for '#{@name}' must include a 'type' string"
+        @option_errors << "DbObject options for '#{@name}' must include a 'type' string"
         parsed = false
       end
 
-      unless ["table", "index"].include?(@type)
+      unless DB_OBJECT_TYPES.include?(@type)
         @option_errors << "The type option for '#{@name}' must be 'table' or 'index', found: '#{@type}'"
         parsed = false
       end
 
-      @columns_options = @options["columns"]
-      unless @columns_options && @columns_options.is_a?(Array)
-        @option_errors << "The options for '#{@name}' must include a 'columns' array"
+      if @type == "index" && @options["table"].nil?
+        @option_errors << "The table option for '#{@name}' is missing, an index type needs a table to define an index on"
         parsed = false
       end
 
+      @columns_options = @options["columns"]
       @columns = []
-      sizes = @columns_options.map{|option| option.is_a?(Array) ? option.size : -1}.uniq
-      if sizes == [2]
-        @columns_options.each do |option|
-          column = Column.new(option)
-          if column.valid?
-            @columns << column
-          else
-            @option_errors << column.formatted_errors
-            parsed = false
+      if @columns_options && @columns_options.is_a?(Array)
+        sizes = @columns_options.map{|option| option.is_a?(Array) ? option.size : -1}.uniq
+        if sizes == [2]
+          @columns_options.each do |option|
+            column = Column.new(option)
+            if column.valid?
+              @columns << column
+            else
+              @option_errors << column.formatted_errors
+              parsed = false
+            end
           end
-        end
-      elsif sizes == [-1]
-        @columns_options.each do |option|
-          if option.is_a?(String)
-            @columns << option.to_sym
-          else
-            @option_errors << "The column name for an 'index' type with name: '#{@name}' must be a string"
-            parsed = false
+        elsif sizes == [-1]
+          @columns_options.each do |option|
+            if option.is_a?(String)
+              @columns << option.to_sym
+            else
+              @option_errors << "The column name for an 'index' type with name: '#{@name}' must be a string"
+              parsed = false
+            end
           end
+        else
+          @option_errors << "The columns array for '#{@name}' is not uniform, it should contain either arrays of two strings or only strings"
+          parsed = false
         end
       else
-        @option_errors << "The columns array for '#{@name}' is not uniform, it should contain either arrays of two strings or only strings"
+        @option_errors << "DbObject options for '#{@name}' must include a 'columns' array"
         parsed = false
       end
+
 
       @valid = parsed
     end

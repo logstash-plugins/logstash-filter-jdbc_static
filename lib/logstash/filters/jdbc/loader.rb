@@ -1,9 +1,14 @@
+# encoding: utf-8
 require_relative "validatable"
+require_relative "db_object"
 require_relative "read_only_database"
+require "logstash/util/loggable"
 
-module LogStash module Filters module Util
+module LogStash module Filters module Jdbc
   class Loader < Validatable
-    attr_reader :table, :temp_table, :query, :max_rows
+    include LogStash::Util::Loggable
+
+    attr_reader :id, :table, :temp_table, :query, :max_rows
     attr_reader :connection_string, :driver_library, :driver_class
     attr_reader :user, :password
 
@@ -13,8 +18,10 @@ module LogStash module Filters module Util
     end
 
     def fetch
-      if @remote.count(query) > max_rows
-        # logger.error max_rows exceeded
+      row_count = @remote.count(query)
+      if row_count > max_rows
+        logger.warn? && logger.warn("max_rows exceeded: query count is #{row_count}, max rows is #{max_rows}")
+        @remote.empty_record_set
       else
         @remote.query(query)
       end
@@ -24,7 +31,6 @@ module LogStash module Filters module Util
       @remote.disconnect
     end
 
-    # ------------------
     private
 
     def pre_initialize(options)

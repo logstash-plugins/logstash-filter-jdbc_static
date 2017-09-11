@@ -1,7 +1,10 @@
 require_relative "lookup_result"
+require "logstash/util/loggable"
 
-module LogStash module Filters module Util
+module LogStash module Filters module Jdbc
   class Lookup
+    include LogStash::Util::Loggable
+
     class Sprintfier
       def initialize(param)
         @param = param
@@ -25,9 +28,12 @@ module LogStash module Filters module Util
     attr_reader :target, :query, :parameters
 
     def self.validate(array_of_options)
+      if !array_of_options.is_a?(Array)
+        return "The options must be an Array"
+      end
       errors = []
       array_of_options.each_with_index do |options, i|
-        instance = new(options, {}, Object.new, "lookup-#{i.next}")
+        instance = new(options, {}, "lookup-#{i.next}")
         unless instance.valid?
           errors << instance.formatted_errors
         end
@@ -36,12 +42,11 @@ module LogStash module Filters module Util
       errors.join("; ")
     end
 
-    def initialize(options, globals, logger, default_id)
+    def initialize(options, globals, default_id)
       @target = options["target"]
       @id = target || default_id
       @options = options
       @globals = globals
-      @logger = logger
       @valid = false
       @option_errors = []
       @default_array = nil
@@ -71,9 +76,7 @@ module LogStash module Filters module Util
       process_event(event, result.payload)
     end
 
-    # ------------------
     private
-
 
     def tag_failure(event)
       @tag_on_failure.each do |tag|
@@ -91,14 +94,15 @@ module LogStash module Filters module Util
       result = LookupResult.new()
       params = prepare_parameters_from_event(event)
       begin
-        @logger.debug? && @logger.debug("Executing JDBC query", :statement => query, :parameters => params)
+        logger.debug? && logger.debug("Executing Jdbc query", :statement => query, :parameters => params)
         local.fetch(query, params).each do |row|
-          result.push row.inject({}){|hash,(k,v)| hash[k.to_s] = v; hash} #Stringify row keys
+          stringified = row.inject({}){|hash,(k,v)| hash[k.to_s] = v; hash} #Stringify row keys
+          result.push(stringified)
         end
       rescue ::Sequel::Error => e
         # all sequel errors are a subclass of this, let all other standard or runtime errors bubble up
         result.failed!
-        @logger.warn? && @logger.warn("Exception when executing JDBC query", :exception => e)
+        logger.warn? && logger.warn("Exception when executing Jdbc query", :exception => e.message, :backtrace => e.backtrace.take(8))
       end
       # if either of: no records or a Sequel exception occurs the payload is
       # empty and the default can be substituted later.
@@ -119,10 +123,11 @@ module LogStash module Filters module Util
     end
 
     def sprintf_or_get(v)
-      v.include?("%{") ? Sprintfier.new(v) : Getfier.new(v)
+      v.match(/%{([^}]+)}/) ? Sprintfier.new(v) : Getfier.new(v)
     end
 
     def parse_options
+      # logger.warn? && logger.warn("Parsing options", :options => @options)
       parsed = true
       @query = @options["query"]
       unless @query && @query.is_a?(String)
@@ -136,6 +141,7 @@ module LogStash module Filters module Util
           @option_errors << "The 'parameters' option for '#{@id}' must be a Hash"
           parsed = false
         else
+          # this is done once per lookup at start, i.e. Sprintfier.new et.al is done once.
           @symbol_parameters = @parameters.inject({}) {|hash,(k,v)| hash[k.to_sym] = sprintf_or_get(v) ; hash }
         end
       end

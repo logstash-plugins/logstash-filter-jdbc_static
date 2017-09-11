@@ -1,6 +1,6 @@
 require_relative "single_load_runner"
 
-module LogStash module Filters module Util
+module LogStash module Filters module Jdbc
   class RepeatingLoadRunner < SingleLoadRunner
    # info - attr_reader :local, :loaders, :preloaders
 

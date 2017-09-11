@@ -1,4 +1,4 @@
-module LogStash module Filters module Util
+module LogStash module Filters module Jdbc
   class LookupResult
     attr_reader :payload
 

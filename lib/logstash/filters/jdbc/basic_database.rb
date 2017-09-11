@@ -1,9 +1,12 @@
 require "sequel"
 require "sequel/adapters/jdbc"
 require "java"
+require "logstash/util/loggable"
 
-module LogStash module Filters module Util
+module LogStash module Filters module Jdbc
   class BasicDatabase
+    include LogStash::Util::Loggable
+
     def initialize()
       post_initialize
     end
@@ -22,7 +25,10 @@ module LogStash module Filters module Util
       @db.disconnect
     end
 
-    # -----------------
+    def empty_record_set
+      []
+    end
+
     private
 
     def pre_connect(connection_string, driver_class, driver_library, user, password)
@@ -38,7 +44,7 @@ module LogStash module Filters module Util
     end
 
     def post_initialize()
-      # overwrite in subclass for specific initialize code
+      raise NotImplementedError.new("#{self.class.name} is abstract, you must subclass it and implement #post_initialize()")
     end
   end
 end end end

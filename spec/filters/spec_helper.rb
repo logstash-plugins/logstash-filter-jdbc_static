@@ -18,11 +18,7 @@ module ServerProcessHelpers
     # process.io.stdout = process.io.stderr = client_out
     process.start
 
-    # sleep(0.1)
-    # client_out.rewind
-
-    # can be used to helper debugging when a test fails
-    # execution_output = client_out.read
+    sleep(0.1)
   end
 
   def self.jdbc_static_stop_derby_server(test_db)
