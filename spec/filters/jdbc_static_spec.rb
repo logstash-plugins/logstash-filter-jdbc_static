@@ -3,7 +3,6 @@ require_relative "spec_helper"
 
 require "logstash/devutils/rspec/spec_helper"
 require "logstash/filters/jdbc_static"
-require 'jdbc/derby'
 require "sequel"
 require "sequel/adapters/jdbc"
 
@@ -11,12 +10,11 @@ module LogStash module Filters
   describe JdbcStatic do
     let(:db1) { ::Sequel.connect("jdbc:derby:memory:testdb;create=true", :user=> nil, :password=> nil) }
     let(:test_loader) { "SELECT * FROM reference_table" }
-    let(:test_records) { db1[test_loader].all }
+    # let(:test_records) { db1[test_loader].all }
 
     let(:local_db_objects) do
       [
-        {"type" => "table", "name" => "servers", "columns" => [["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
-        {"type" => "index", "name" => "servers_idx", "table" => "servers", "columns" => ["ip"]}
+        {"name" => "servers", "index_columns" => ["ip"], "columns" => [["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
       ]
     end
 

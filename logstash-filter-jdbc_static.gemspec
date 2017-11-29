@@ -7,15 +7,24 @@ Gem::Specification.new do |s|
   s.authors         = ["Elastic"]
   s.email           = 'info@elastic.co'
   s.homepage        = "http://www.elastic.co/guide/en/logstash/current/index.html"
-  s.require_paths   = ["lib"]
+  # to fool jar_dependencies to mimic our other plugin gradle vendor script behaviour
+  # the rake vendor task removes jars dir and jars downloaded to it
+  s.require_paths   = ["lib", "jars"]
 
   # Files
-  s.files = Dir['lib/**/*','spec/**/*','vendor/**/*','*.gemspec','*.md','CONTRIBUTORS','Gemfile','LICENSE','NOTICE.TXT']
+  s.files = Dir['lib/**/*','vendor/**/*','spec/**/*','*.gemspec','*.md','CONTRIBUTORS','Gemfile','LICENSE','NOTICE.TXT']
    # Tests
   s.test_files = s.files.grep(%r{^(test|spec|features)/})
 
   # Special flag to let us know this is actually a logstash plugin
   s.metadata = { "logstash_plugin" => "true", "logstash_group" => "filter" }
+
+  derby_version = "10.14.1.0"
+  s.requirements << "jar 'org.apache.derby:derby', '#{derby_version}'"
+  s.requirements << "jar 'org.apache.derby:derbyclient', '#{derby_version}'"
+  s.requirements << "jar 'org.apache.derby:derbynet', '#{derby_version}'"
+
+  s.add_development_dependency 'jar-dependencies', '~> 0.3'
 
   # Gem dependencies
   s.add_runtime_dependency "logstash-core-plugin-api", ">= 1.60", "<= 2.99"
@@ -23,7 +32,6 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'tzinfo'
   s.add_runtime_dependency 'tzinfo-data'
   s.add_runtime_dependency 'rufus-scheduler'
-  s.add_runtime_dependency 'jdbc-derby'
 
   s.add_development_dependency 'logstash-devutils'
   s.add_development_dependency "childprocess"

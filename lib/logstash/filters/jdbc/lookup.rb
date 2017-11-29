@@ -127,7 +127,6 @@ module LogStash module Filters module Jdbc
     end
 
     def parse_options
-      # logger.warn? && logger.warn("Parsing options", :options => @options)
       parsed = true
       @query = @options["query"]
       unless @query && @query.is_a?(String)

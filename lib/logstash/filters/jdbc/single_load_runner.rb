@@ -12,11 +12,9 @@ module LogStash module Filters module Jdbc
       preloaders.map do |pre|
         dbo = DbObject.new(pre)
         @preloaders << dbo
-        if dbo.table?
-          hash = dbo.as_temp_table_opts
-          _dbo = DbObject.new(hash)
-          @preloaders << _dbo if _dbo.valid?
-        end
+        hash = dbo.as_temp_table_opts
+        _dbo = DbObject.new(hash)
+        @preloaders << _dbo if _dbo.valid?
       end
       @preloaders.sort!
     end
@@ -31,10 +29,6 @@ module LogStash module Filters module Jdbc
 
     def call
       repeated_load
-    end
-
-    def close
-      local.disconnect
     end
 
     private

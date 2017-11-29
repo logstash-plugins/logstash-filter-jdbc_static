@@ -3,12 +3,11 @@ require_relative "spec_helper"
 
 require "logstash/devutils/rspec/spec_helper"
 require "logstash/filters/jdbc_static"
-require 'jdbc/derby'
 require "sequel"
 require "sequel/adapters/jdbc"
 
 module LogStash module Filters
-  describe JdbcStatic do
+  describe JdbcStatic, :skip => "temporary disable lookup_jdbc_* settings" do
     let(:db1) { ::Sequel.connect("jdbc:derby:memory:testdb;create=true", :user=> nil, :password=> nil) }
     let(:test_loader) { "SELECT * FROM reference_table" }
     let(:test_records) { db1[test_loader].all }
@@ -16,8 +15,7 @@ module LogStash module Filters
 
     let(:local_db_objects) do
       [
-        {"type" => "table", "name" => "servers", "columns" => [["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
-        {"type" => "index", "name" => "servers_idx", "table" => "servers", "columns" => ["ip"]}
+        {"name" => "servers", "preserve_existing" => true, "index_columns" => ["ip"], "columns" => [["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
       ]
     end
 
@@ -47,7 +45,7 @@ module LogStash module Filters
       { "jdbc_user" => ENV['USER'], "jdbc_driver_class" => "org.apache.derby.jdbc.EmbeddedDriver",
         "jdbc_connection_string" => "jdbc:derby:memory:testdb;create=true",
         "lookup_jdbc_driver_class" => "org.apache.derby.jdbc.ClientDriver",
-        "lookup_jdbc_driver_library" => client_jar_path,
+        "lookup_jdbc_driver_library" => nil,
         "lookup_jdbc_connection_string" => "jdbc:derby://localhost:1527/#{lookup_db};create=true" }
     end
     let(:plugin) { JdbcStatic.new(mixin_settings.merge(settings)) }

@@ -8,27 +8,34 @@ module LogStash module Filters module Jdbc
   class Loader < Validatable
     include LogStash::Util::Loggable
 
+    CONNECTION_ERROR_MSG = "Remote DB connection error when executing loader Jdbc query"
+
     attr_reader :id, :table, :temp_table, :query, :max_rows
     attr_reader :connection_string, :driver_library, :driver_class
     attr_reader :user, :password
 
     def build_remote_db
-      @remote = ReadOnlyDatabase.new()
-      @remote.connect(connection_string, driver_class, driver_library, user, password)
+      @remote = ReadOnlyDatabase.create(connection_string, driver_class, driver_library, user, password)
     end
 
     def fetch
+      @remote.connect(CONNECTION_ERROR_MSG)
       row_count = @remote.count(query)
-      if row_count > max_rows
-        logger.warn? && logger.warn("max_rows exceeded: query count is #{row_count}, max rows is #{max_rows}")
-        @remote.empty_record_set
-      else
-        @remote.query(query)
+      if row_count.zero?
+        logger.warn? && logger.warn("Query returned no results", :query => query)
+        return @remote.empty_record_set
       end
+      if row_count > max_rows
+        logger.warn? && logger.warn("Query returned more than max_rows results", :query => query, :count => row_count, :max_rows => max_rows)
+        return @remote.empty_record_set
+      end
+      @remote.query(query)
+    ensure
+      @remote.disconnect(CONNECTION_ERROR_MSG)
     end
 
     def close
-      @remote.disconnect
+      @remote.disconnect(CONNECTION_ERROR_MSG)
     end
 
     private

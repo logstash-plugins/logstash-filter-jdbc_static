@@ -1,4 +1,5 @@
 # encoding: utf-8
+require "logstash-filter-jdbc_static_jars"
 require "logstash/filters/base"
 require "logstash/namespace"
 require_relative "jdbc/loader"
@@ -40,9 +41,9 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   # These will usually be the definitions to setup the local in-memory tables.
   # For example:
   # local_db_objects => [
-  #   {type => "table", name => "servers", columns => [["id", "INTEGER"], ["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
-  #   {type => "index", name => "servers_idx", table => "servers", columns => ["ip"]}
+  #   {name => "servers", preserve_existing => true, index_columns => ["ip"], columns => [["id", "INTEGER"], ["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
   # ]
+  # NOTE: Important! use `preserve_existing => true` to keep a table created and filled in a previous Logstash session. It will default to false and is unneeded if the database is not persistent.
   # NOTE: Important! Tables created here must have the same names as those used in the `loaders` and
   # `local_lookups` configuration options
   config :local_db_objects, :required => false, :default => [], :validate => [LogStash::Filters::Jdbc::DbObject]
@@ -99,14 +100,18 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   # Remote Load DB Jdbc password
   config :jdbc_password, :validate => :password
 
+  # NOTE: For the initial release, we are not allowing the user to specify their own local lookup JDBC DB settings.
+  # In the near future we have to consider identical config running in multiple pipelines stomping over each other
+  # when the database names are common across configs because there is only one Derby server in memory per JVM.
+
   # Local Lookup DB Jdbc driver class to load, for example "org.apache.derby.jdbc.ClientDriver"
-  config :lookup_jdbc_driver_class, :validate => :string, :required => false, :default => "org.apache.derby.jdbc.EmbeddedDriver"
+  # config :lookup_jdbc_driver_class, :validate => :string, :required => false
 
   # Local Lookup DB Jdbc driver library path to third party driver library.
-  config :lookup_jdbc_driver_library, :validate => :path, :required => false
+  # config :lookup_jdbc_driver_library, :validate => :path, :required => false
 
   # Local Lookup DB Jdbc connection string
-  config :lookup_jdbc_connection_string, :validate => :string, :required => false, :default => "jdbc:derby:memory:localdb;create=true"
+  # config :lookup_jdbc_connection_string, :validate => :string, :required => false
 
   class << self
     alias_method :old_validate_value, :validate_value
@@ -129,6 +134,7 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   public
 
   def register
+    prepare_data_dir
     prepare_runner
     @loader_runner.initial_load
   end
@@ -141,10 +147,16 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   def stop
     @scheduler.stop if @scheduler
     @parsed_loaders.each(&:close)
-    @loader_runner.close
+    @processor.close
   end
 
   private
+
+  def prepare_data_dir
+    # later, when local persistent databases are allowed set this property to LS_HOME/data/jdbc-static/
+    # must take multi-pipelines into account and more than one config using the same jdbc-static settings
+    java.lang.System.setProperty("derby.system.home", ENV["HOME"])
+  end
 
   def prepare_runner
     @parsed_loaders = @loaders.map do |options|

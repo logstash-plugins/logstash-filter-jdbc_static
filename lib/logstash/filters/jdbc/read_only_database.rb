@@ -3,15 +3,49 @@ require_relative "basic_database"
 
 module LogStash module Filters module Jdbc
   class ReadOnlyDatabase < BasicDatabase
+
     def count(statement)
-      @db[statement].count
+      result = 0
+      begin
+        # its the responsibility of the caller to manage the connections see Loader
+        if connected?
+          result = @db[statement].count
+        end
+      rescue ::Sequel::Error => err
+        # a fatal issue
+        msg = "Exception occurred when executing loader Jdbc query count"
+        logger.error(msg, :exception => err.message, :backtrace => err.backtrace.take(8))
+        raise wrap_error(LookupJdbcException, err, msg)
+      end
+      logger.debug("Lookup query count is zero") if result.zero?
+      result
     end
 
     def query(statement)
-      @db[statement].all
+      result = empty_record_set
+      begin
+        # its the responsibility of the caller to manage the connections see Loader
+        if connected?
+          result = @db[statement].all
+        end
+      rescue ::Sequel::Error => err
+        # a fatal issue
+        msg = "Exception occurred when executing loader Jdbc query"
+        logger.error(msg, :exception => err.message, :backtrace => err.backtrace.take(8))
+        raise wrap_error(LookupJdbcException, err, msg)
+      end
+      logger.debug("Lookup query results are empty") if result.empty?
+      result
     end
 
+    def post_create(connection_string, driver_class, driver_library, user, password)
+      verify_connection(connection_string, driver_class, driver_library, user, password)
+    end
+
+    private
+
     def post_initialize()
+      super
     end
   end
 end end end
