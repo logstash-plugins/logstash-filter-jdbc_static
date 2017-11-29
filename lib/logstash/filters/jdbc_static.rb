@@ -119,7 +119,7 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     def validate_value(value, validator)
 
       result = value
-      if validator.is_a?(Array) && validator.first.is_a?(Class)
+      if validator.is_a?(Array) && validator.first.respond_to?(:validate)
         validation_error = validator.first.validate(value)
         unless validation_error.nil?
           return false, validation_error
