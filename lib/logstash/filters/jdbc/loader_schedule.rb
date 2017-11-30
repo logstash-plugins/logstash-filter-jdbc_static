@@ -8,6 +8,9 @@ module LogStash module Filters module Jdbc
 
     def post_initialize
       if valid?
+        # From the Rufus::Scheduler docs:
+        # By default, rufus-scheduler sleeps 0.300 second between every step.
+        # At each step it checks for jobs to trigger and so on.
         if @cronline.seconds.is_a?(Set)
           @schedule_frequency = 0.3
         else

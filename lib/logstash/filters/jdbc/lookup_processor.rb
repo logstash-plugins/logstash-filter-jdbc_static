@@ -6,6 +6,7 @@ module LogStash module Filters module Jdbc
     attr_reader :lookups, :local
 
     CONNECTION_ERROR_MSG = "Connection error when initialising lookup (local) db"
+    DISCONNECTION_ERROR_MSG = "Connection error when disconnecting from lookup (local) db"
 
     def initialize(lookups_array, globals)
       @lookups = lookups_array.map.with_index do |options, i|
@@ -23,7 +24,7 @@ module LogStash module Filters module Jdbc
     end
 
     def close
-      @local.disconnect(CONNECTION_ERROR_MSG)
+      @local.disconnect(DISCONNECTION_ERROR_MSG)
       @local = nil
     end
   end

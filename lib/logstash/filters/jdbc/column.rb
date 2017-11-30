@@ -18,26 +18,21 @@ module LogStash module Filters module Jdbc
     end
 
     def parse_options
-      parsed = true
-
       unless @options.is_a?(Array)
         @option_errors << "The column options must be an array"
-        parsed = false
       end
 
       @name, @datatype = @options
 
       unless @name && @name.is_a?(String)
         @option_errors << "The first column option is the name and must be a string"
-        parsed = false
       end
 
       unless @datatype && @datatype.is_a?(String)
         @option_errors << "The second column option is the datatype and must be a string"
-        parsed = false
       end
 
-      @valid = parsed
+      @valid = @option_errors.empty?
     end
   end
 end end end
