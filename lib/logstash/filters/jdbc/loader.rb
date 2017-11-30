@@ -85,7 +85,7 @@ module LogStash module Filters module Jdbc
           @option_errors << "The 'jdbc_driver_library' option for '#{@table}' must be a string"
           parsed = false
         end
-        if !File.exists?(@driver_library)
+        if !::File.exists?(@driver_library)
           @option_errors << "The 'jdbc_driver_library' option for '#{@table}' must be a file that can be opened: #{driver_library}"
           parsed = false
         end
