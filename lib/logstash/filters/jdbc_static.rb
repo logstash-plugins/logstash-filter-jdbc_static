@@ -80,10 +80,10 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   config :loader_schedule, :validate => [LogStash::Filters::Jdbc::LoaderSchedule]
 
   # Append values to the `tags` field if sql error occured
-  config :tag_on_failure, :validate => :array, :default => ["_jdbcstreamingfailure"]
+  config :tag_on_failure, :validate => :array, :default => ["_jdbcstaticfailure"]
 
   # Append values to the `tags` field if no record was found and default values were used
-  config :tag_on_default_use, :validate => :array, :default => ["_jdbcstreamingdefaultsused"]
+  config :tag_on_default_use, :validate => :array, :default => ["_jdbcstaticdefaultsused"]
 
   # Remote Load DB Jdbc driver library path to third party driver library.
   config :jdbc_driver_library, :validate => :path
@@ -117,17 +117,15 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     alias_method :old_validate_value, :validate_value
 
     def validate_value(value, validator)
-
-      result = value
-      if validator.is_a?(Array) && validator.first.respond_to?(:validate)
-        validation_error = validator.first.validate(value)
-        unless validation_error.nil?
-          return false, validation_error
+      if validator.is_a?(Array) && validator.first.respond_to?(:find_validation_errors)
+        validation_errors = validator.first.find_validation_errors(value)
+        unless validation_errors.nil?
+          return false, validation_errors
         end
       else
         return old_validate_value(value, validator)
       end
-      [true, result]
+      [true, value]
     end
   end
 

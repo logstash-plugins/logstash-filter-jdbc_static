@@ -27,7 +27,7 @@ module LogStash module Filters module Jdbc
 
     attr_reader :target, :query, :parameters
 
-    def self.validate(array_of_options)
+    def self.find_validation_errors(array_of_options)
       if !array_of_options.is_a?(Array)
         return "The options must be an Array"
       end
@@ -127,18 +127,15 @@ module LogStash module Filters module Jdbc
     end
 
     def parse_options
-      parsed = true
       @query = @options["query"]
       unless @query && @query.is_a?(String)
         @option_errors << "The options for '#{@id}' must include a 'query' string"
-        parsed = false
       end
 
       @parameters = @options["parameters"]
       if @parameters
         if !@parameters.is_a?(Hash)
           @option_errors << "The 'parameters' option for '#{@id}' must be a Hash"
-          parsed = false
         else
           # this is done once per lookup at start, i.e. Sprintfier.new et.al is done once.
           @symbol_parameters = @parameters.inject({}) {|hash,(k,v)| hash[k.to_sym] = sprintf_or_get(v) ; hash }
@@ -155,7 +152,7 @@ module LogStash module Filters module Jdbc
       @tag_on_failure = @options["tag_on_failure"] || @globals["tag_on_failure"] || []
       @tag_on_default_use = @options["tag_on_default_use"] || @globals["tag_on_default_use"] || []
 
-      @valid = parsed
+      @valid = @option_errors.empty?
     end
   end
 end end end

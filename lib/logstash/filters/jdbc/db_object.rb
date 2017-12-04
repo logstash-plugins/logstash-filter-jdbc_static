@@ -54,12 +54,10 @@ module LogStash module Filters module Jdbc
         return
       end
 
-      parsed = true
       @name = @options["name"]
       unless @name && @name.is_a?(String)
         @option_errors << "DbObject options must include a 'name' string"
         @name = "unnamed"
-        parsed = false
       end
 
       @preserve_existing = @options.fetch("preserve_existing", false)
@@ -78,16 +76,13 @@ module LogStash module Filters module Jdbc
               temp_column_names << column.name
             else
               @option_errors << column.formatted_errors
-              parsed = false
             end
           end
         else
           @option_errors << "The columns array for '#{@name}' is not uniform, it should contain arrays of two strings only"
-          parsed = false
         end
       else
         @option_errors << "DbObject options for '#{@name}' must include a 'columns' array"
-        parsed = false
       end
 
       @index_column_options = @options["index_columns"]
@@ -98,12 +93,11 @@ module LogStash module Filters module Jdbc
             @index_columns << option.to_sym
           else
             @option_errors << "The index_columns element: '#{option}' must be a column defined in the columns array"
-            parsed = false
           end
         end
       end
 
-      @valid = parsed
+      @valid = @option_errors.empty?
     end
   end
 end end end

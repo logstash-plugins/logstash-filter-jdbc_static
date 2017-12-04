@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
   derby_version = "10.14.1.0"
   s.requirements << "jar 'org.apache.derby:derby', '#{derby_version}'"
   s.requirements << "jar 'org.apache.derby:derbyclient', '#{derby_version}'"
-  s.requirements << "jar 'org.apache.derby:derbynet', '#{derby_version}'"
+  # we may need 'org.apache.derby:derbynet' in the future, marking this here
 
   s.add_development_dependency 'jar-dependencies', '~> 0.3'
 

@@ -7,12 +7,12 @@ module LogStash module Filters module Jdbc
     describe "class method validate" do
       context "when supplied with an invalid arg" do
         it "nil as arg, fails validation" do
-          result = described_class.validate(nil)
+          result = described_class.find_validation_errors(nil)
           expect(result).to eq("The options must be an Array")
         end
 
         it "hash as arg, fails validation" do
-          result = described_class.validate({})
+          result = described_class.find_validation_errors({})
           expect(result).to eq("The options must be an Array")
         end
 
@@ -21,7 +21,7 @@ module LogStash module Filters module Jdbc
           "parameters" => {"ip" => "%%{[ip]}"},
           "target" => "server"
           }
-          result = described_class.validate([lookup_hash])
+          result = described_class.find_validation_errors([lookup_hash])
           expect(result).to eq("The options for 'server' must include a 'query' string")
         end
 
@@ -31,7 +31,7 @@ module LogStash module Filters module Jdbc
           "parameters" => %w(ip %%{[ip]}),
           "target" => "server"
           }
-          result = described_class.validate([lookup_hash])
+          result = described_class.find_validation_errors([lookup_hash])
           expect(result).to eq("The 'parameters' option for 'server' must be a Hash")
         end
 
@@ -40,14 +40,14 @@ module LogStash module Filters module Jdbc
           "query" => "select * from servers WHERE ip LIKE :ip",
           "parameters" => %w(ip %%{[ip]})
           }
-          result = described_class.validate([lookup_hash])
+          result = described_class.find_validation_errors([lookup_hash])
           expect(result).to eq("The 'parameters' option for 'lookup-1' must be a Hash")
         end
       end
 
       context "when supplied with a valid arg" do
         it "empty array as arg, passes validation" do
-          result = described_class.validate([])
+          result = described_class.find_validation_errors([])
           expect(result).to eq(nil)
         end
 
@@ -57,7 +57,7 @@ module LogStash module Filters module Jdbc
             "parameters" => {"ip" => "%%{[ip]}"},
             "target" => "server"
           }
-          result = described_class.validate([lookup_hash])
+          result = described_class.find_validation_errors([lookup_hash])
           expect(result).to eq(nil)
         end
       end

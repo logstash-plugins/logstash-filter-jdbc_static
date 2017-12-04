@@ -6,10 +6,13 @@ module LogStash module Filters module Jdbc
 
     def count(statement)
       result = 0
+      debug_log_messages = ["Lookup query count is zero"]
       begin
         # its the responsibility of the caller to manage the connections see Loader
         if connected?
           result = @db[statement].count
+        else
+          debug_log_messages.concat("and there is no connection to the remote db at this time")
         end
       rescue ::Sequel::Error => err
         # a fatal issue
@@ -17,16 +20,19 @@ module LogStash module Filters module Jdbc
         logger.error(msg, :exception => err.message, :backtrace => err.backtrace.take(8))
         raise wrap_error(LookupJdbcException, err, msg)
       end
-      logger.debug("Lookup query count is zero") if result.zero?
+      logger.debug(debug_log_messages.join(' ')) if result.zero?
       result
     end
 
     def query(statement)
       result = empty_record_set
+      debug_log_messages = ["Lookup query results are empty"]
       begin
         # its the responsibility of the caller to manage the connections see Loader
         if connected?
           result = @db[statement].all
+        else
+          debug_log_messages.concat("and there is no connection to the remote db at this time")
         end
       rescue ::Sequel::Error => err
         # a fatal issue
@@ -34,7 +40,7 @@ module LogStash module Filters module Jdbc
         logger.error(msg, :exception => err.message, :backtrace => err.backtrace.take(8))
         raise wrap_error(LookupJdbcException, err, msg)
       end
-      logger.debug("Lookup query results are empty") if result.empty?
+      logger.debug(debug_log_messages.join(' ')) if result.empty?
       result
     end
 

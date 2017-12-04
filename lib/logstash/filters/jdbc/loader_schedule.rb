@@ -20,23 +20,19 @@ module LogStash module Filters module Jdbc
     end
 
     def parse_options
-      parsed = true
-
       @loader_schedule = @options
 
       unless @loader_schedule.is_a?(String)
         @option_errors << "The loader_schedule option must be a string"
-        parsed = false
       end
 
       begin
         @cronline = Rufus::Scheduler::CronLine.new(@loader_schedule)
       rescue => e
         @option_errors << "The loader_schedule option is invalid: #{e.message}"
-        parsed = false
       end
 
-      @valid = parsed
+      @valid = @option_errors.empty?
     end
   end
 end end end
