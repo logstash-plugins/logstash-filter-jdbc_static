@@ -22,11 +22,11 @@ module LogStash module Filters module Jdbc
       @remote.connect(CONNECTION_ERROR_MSG)
       row_count = @remote.count(query)
       if row_count.zero?
-        logger.warn? && logger.warn("Query returned no results", :query => query)
+        logger.warn? && logger.warn("Query returned no results", :lookup_id => @id, :query => query)
         return @remote.empty_record_set
       end
       if row_count > max_rows
-        logger.warn? && logger.warn("Query returned more than max_rows results", :query => query, :count => row_count, :max_rows => max_rows)
+        logger.warn? && logger.warn("Query returned more than max_rows results", :lookup_id => @id, :query => query, :count => row_count, :max_rows => max_rows)
         return @remote.empty_record_set
       end
       @remote.query(query)

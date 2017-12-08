@@ -70,7 +70,7 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   #     "target" => "servers"
   #   }
   # ]
-  config :local_lookups, :required => true, :validate => [LogStash::Filters::Jdbc::Lookup]
+  config :local_lookups, :required => true, :validate => [LogStash::Filters::Jdbc::LookupProcessor]
 
   # Schedule of when to periodically run loaders, in Cron format
   # for example: "* * * * *" (execute query every minute, on the minute)
@@ -80,6 +80,7 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   config :loader_schedule, :validate => [LogStash::Filters::Jdbc::LoaderSchedule]
 
   # Append values to the `tags` field if sql error occured
+  # Alternatively, individual `tag_on_failure` arrays can be added to each lookup hash
   config :tag_on_failure, :validate => :array, :default => ["_jdbcstaticfailure"]
 
   # Append values to the `tags` field if no record was found and default values were used
@@ -138,8 +139,8 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   end
 
   def filter(event)
-    @processor.enhance(event)
-    filter_matched(event)
+    enhancement_states = @processor.enhance(event)
+    filter_matched(event) if enhancement_states.all?
   end
 
   def stop

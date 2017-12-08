@@ -8,24 +8,73 @@ module LogStash module Filters module Jdbc
     CONNECTION_ERROR_MSG = "Connection error when initialising lookup (local) db"
     DISCONNECTION_ERROR_MSG = "Connection error when disconnecting from lookup (local) db"
 
+    def self.find_validation_errors(array_of_options)
+      if !array_of_options.is_a?(Array)
+        return "The options must be an Array"
+      end
+      errors = []
+      instance = new(array_of_options, {})
+      instance.lookups.each do |lookup|
+        unless lookup.valid?
+          errors << lookup.formatted_errors
+        end
+      end
+      unless instance.valid?
+        errors << instance.formatted_errors
+      end
+      return nil if errors.empty?
+      # errors.unshift("For plugin #{}")
+      errors.join("; ")
+    end
+
     def initialize(lookups_array, globals)
+      @lookups_errors = []
       @lookups = lookups_array.map.with_index do |options, i|
         Lookup.new(options, globals, "lookup-#{i.next}")
       end
-      @local = ReadWriteDatabase.create(*globals.values_at(
-        "lookup_jdbc_connection_string",
-        "lookup_jdbc_driver_class",
-        "lookup_jdbc_driver_library").compact)
-      @local.connect(CONNECTION_ERROR_MSG)
+      validate_lookups
+      if @lookups_errors.empty? && !globals.empty?
+        @local = ReadWriteDatabase.create(*globals.values_at(
+          "lookup_jdbc_connection_string",
+          "lookup_jdbc_driver_class",
+          "lookup_jdbc_driver_library").compact)
+        @local.connect(CONNECTION_ERROR_MSG)
+      end
     end
 
     def enhance(event)
-      @lookups.each { |lookup| lookup.enhance(@local, event) }
+      @lookups.map { |lookup| lookup.enhance(@local, event) }
     end
 
     def close
       @local.disconnect(DISCONNECTION_ERROR_MSG)
       @local = nil
+    end
+
+    def formatted_errors
+      @lookups_errors.join(", ")
+    end
+
+    def valid?
+      @lookups_errors.empty?
+    end
+
+    private
+
+    def validate_lookups
+      targets = {}
+      @lookups.each do |lookup|
+        target = lookup.target
+        ids = targets.fetch(target, [])
+        ids.push(lookup.id)
+        targets[target] = ids
+      end
+      targets.select{|_,val| val.size > 1}.each do |target, ids|
+        @lookups_errors << "'#{ids.join("', '")}' have the same target field defined"
+      end
+      if !@lookups_errors.empty?
+        @lookups_errors.unshift("Target fields must be different across all lookups")
+      end
     end
   end
 end end end

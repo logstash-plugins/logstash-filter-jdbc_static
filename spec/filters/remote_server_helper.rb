@@ -1,13 +1,6 @@
 # encoding: utf-8
 require "childprocess"
 
-ENV["TEST_DEBUG"] = "true"
-java.lang.System.setProperty("ls.logs", "console")
-
-GEM_BASE_DIR = ::File.expand_path("../../..", __FILE__)
-BASE_DERBY_DIR = ::File.join(GEM_BASE_DIR, "spec", "helpers")
-ENV["HOME"] = GEM_BASE_DIR
-
 module ServerProcessHelpers
   def self.jdbc_static_start_derby_server()
     # client_out = Stud::Temporary.file

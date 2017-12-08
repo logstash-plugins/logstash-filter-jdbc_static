@@ -1,10 +1,11 @@
 # encoding: utf-8
+require_relative "../env_helper"
 require "logstash/devutils/rspec/spec_helper"
 require "logstash/filters/jdbc/lookup"
 
 module LogStash module Filters module Jdbc
   describe Lookup do
-    describe "class method validate" do
+    describe "class method find_validation_errors" do
       context "when supplied with an invalid arg" do
         it "nil as arg, fails validation" do
           result = described_class.find_validation_errors(nil)
@@ -22,7 +23,7 @@ module LogStash module Filters module Jdbc
           "target" => "server"
           }
           result = described_class.find_validation_errors([lookup_hash])
-          expect(result).to eq("The options for 'server' must include a 'query' string")
+          expect(result).to eq("The options for 'lookup-1' must include a 'query' string")
         end
 
         it "array of lookup hash with bad parameters value as arg, fails validation" do
@@ -32,7 +33,7 @@ module LogStash module Filters module Jdbc
           "target" => "server"
           }
           result = described_class.find_validation_errors([lookup_hash])
-          expect(result).to eq("The 'parameters' option for 'server' must be a Hash")
+          expect(result).to eq("The 'parameters' option for 'lookup-1' must be a Hash")
         end
 
         it "array of lookup hash with bad parameters value as arg and no target, fails validation" do
@@ -63,13 +64,40 @@ module LogStash module Filters module Jdbc
       end
     end
 
+    describe "abnormal operations" do
+      let(:local_db) { double("local_db") }
+      let(:lookup_hash) do
+        {
+        "query" => "select * from servers WHERE ip LIKE :ip",
+        "parameters" => {"ip" => "%%{[ip]}"},
+        "target" => "server",
+        "tag_on_failure" => ["_jdbcstaticfailure_server"]
+        }
+      end
+      let(:event) { LogStash::Event.new()}
+      let(:records) { [{"name" => "ldn-1-23", "rack" => "2:1:6"}] }
+
+      subject(:lookup) { described_class.new(lookup_hash, {}, "lookup-1") }
+
+      before(:each) do
+        allow(local_db).to receive(:fetch).once.and_return(records)
+      end
+
+      it "should not enhance an event and it should tag" do
+        subject.enhance(local_db, event)
+        expect(event.get("tags")).to eq(["_jdbcstaticfailure_server"])
+        expect(event.get("server")).to be_nil
+      end
+    end
+
     describe "normal operations" do
       let(:local_db) { double("local_db") }
       let(:lookup_hash) do
         {
           "query" => "select * from servers WHERE ip LIKE :ip",
           "parameters" => {"ip" => "%%{[ip]}"},
-          "target" => "server"
+          "target" => "server",
+          "tag_on_failure" => ["_jdbcstaticfailure_server"]
         }
       end
       let(:event) { LogStash::Event.new()}
@@ -90,7 +118,9 @@ module LogStash module Filters module Jdbc
       end
 
       it "should enhance an event" do
+        event.set("ip", "20.20")
         subject.enhance(local_db, event)
+        expect(event.get("tags")).to be_nil
         expect(event.get("server")).to eq(records)
       end
     end

@@ -1,6 +1,4 @@
 # encoding: utf-8
-require_relative "spec_helper"
-
 require "logstash/devutils/rspec/spec_helper"
 require "logstash/filters/jdbc_static"
 require "sequel"
