@@ -51,14 +51,22 @@ module LogStash module Filters module Jdbc
     attr_reader :id, :target, :query, :parameters
 
     def initialize(options, globals, default_id)
-      @target = options["target"] || default_id
       @id = options["id"] || default_id
+      @target = options["target"]
+      @id_used_as_target = @target.nil?
+      if @id_used_as_target
+        @target = @id
+      end
       @options = options
       @globals = globals
       @valid = false
       @option_errors = []
       @default_result = nil
       parse_options
+    end
+
+    def id_used_as_target?
+      @id_used_as_target
     end
 
     def valid?

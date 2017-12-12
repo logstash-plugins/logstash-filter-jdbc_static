@@ -62,19 +62,30 @@ module LogStash module Filters module Jdbc
     private
 
     def validate_lookups
-      targets = {}
+      ids = Hash.new(0)
+      errors = []
+      @lookups.each {|lookup| ids[lookup.id] += 1}
+      ids.select{|id, count| count > 1}.each do |id, count|
+        errors << "'#{id}' is specified multiple times"
+      end
+      if !errors.empty?
+        errors.unshift("Id setting must be different across all lookups")
+      end
+      @lookups_errors.concat(errors)
+      targets = Hash.new {|h,k| h[k] = []}
+      errors = []
       @lookups.each do |lookup|
-        target = lookup.target
-        ids = targets.fetch(target, [])
-        ids.push(lookup.id)
-        targets[target] = ids
+        # if id was used as target, skip target unique check because id uniqueness is checked already
+        next if lookup.id_used_as_target?
+        targets[lookup.target] << lookup.id
       end
       targets.select{|_,val| val.size > 1}.each do |target, ids|
-        @lookups_errors << "'#{ids.join("', '")}' have the same target field defined"
+        errors << "'#{ids.join("', '")}' have the same target field setting"
       end
-      if !@lookups_errors.empty?
-        @lookups_errors.unshift("Target fields must be different across all lookups")
+      if !errors.empty?
+        errors.unshift("Target setting must be different across all lookups")
       end
+      @lookups_errors.concat(errors)
     end
   end
 end end end
