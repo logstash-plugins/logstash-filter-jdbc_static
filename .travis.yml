@@ -15,7 +15,7 @@ matrix:
   fast_finish: true
 install: true
 before_script:
-  - chmod +x setup.sh
-  - chmod +x build.sh
+  - chmod +x ci/setup.sh
+  - chmod +x ci/build.sh
 script: ci/build.sh
 jdk: oraclejdk8
