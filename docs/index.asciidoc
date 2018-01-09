@@ -27,7 +27,9 @@ that the enhancement lookups are done against. Remotely there is
 a database that has the static data. The local db is loaded with
 data from the remote db once or very periodically. To achieve this
 three main sections are defined: db_objects, loaders and lookups.
-The local database is an Apache Derby in-memory database.
+The local database is an
+https://db.apache.org/derby/manuals/#docs_10.14[Apache Derby]
+in-memory database.
 
 Db_objects
 
@@ -112,6 +114,93 @@ filter {
   }
 }
 
+Fully worked up example
+```
+input {
+  generator {
+    lines => [
+      '{"from_ip": "10.2.3.20", "app": "foobar", "amount": 32.95}',
+      '{"from_ip": "10.2.3.30", "app": "barfoo", "amount": 82.95}',
+      '{"from_ip": "10.2.3.40", "app": "bazfoo", "amount": 22.95}'
+    ]
+    count => 200
+  }
+}
+
+filter {
+  json {
+    source => "message"
+  }
+
+  jdbc_static {
+    loaders => [
+      {
+        id => "servers"
+        query => "select ip, descr from ref.local_ips order by ip"
+        local_table => "servers"
+      }
+    ]
+    local_db_objects => [
+      {
+        name => "servers"
+        index_columns => ["ip"]
+        columns => [
+          ["ip", "varchar(15)"],
+          ["descr", "varchar(255)"]
+        ]
+      }
+    ]
+    local_lookups => [
+      {
+        query => "select descr as description from servers WHERE ip = :ip"
+        parameters => {ip => "[from_ip]"}
+        target => "server"
+      }
+    ]
+    jdbc_user => "logstash"
+    jdbc_password => "logstash??"
+    jdbc_driver_class => "org.postgresql.Driver"
+    jdbc_driver_library => "/Users/guy/tmp/logstash-6.0.0/vendor/postgresql-42.1.4.jar"
+    jdbc_connection_string => "jdbc:postgresql://localhost:5432/ls_test_2"
+  }
+}
+
+output {
+  stdout {
+    codec => rubydebug {metadata => true}
+  }
+}
+```
+with this data in a postgres db
+```
+select * from ref.local_ips order by ip;
+    ip     |         descr
+-----------+-----------------------
+ 10.2.3.10 | Authentication Server
+ 10.2.3.20 | Payments Server
+ 10.2.3.30 | Events Server
+ 10.2.3.40 | Payroll Server
+ 10.2.3.50 | Uploads Server
+```
+one event
+```
+{
+           "app" => "bazfoo",
+      "sequence" => 0,
+        "server" => [
+        [0] {
+            "description" => "Payroll Server"
+        }
+    ],
+        "amount" => 22.95,
+    "@timestamp" => 2017-11-30T18:08:15.694Z,
+      "@version" => "1",
+          "host" => "Elastics-MacBook-Pro.local",
+       "message" => "{\"from_ip\": \"10.2.3.40\", \"app\": \"bazfoo\", \"amount\": 22.95}",
+       "from_ip" => "10.2.3.40"
+}
+```
+
 ==== Using this plugin in multiple pipelines in a Logstash instance
 
 [id="plugins-{type}s-{plugin}-multi-pipelines"]
@@ -120,30 +209,13 @@ filter {
 Read the next section when using this plugin in with multiple
 pipelines.
 ===============================
-These considerations are necessary because the lookup
-database, an in-memory Apache Derby instance, is a single
-instance for the whole JVM.
-
-===== Same lookup enhancement
-The big concern here is the timing of pipeline creation. As
-each pipeline is created during Logstash startup, each plugin
-will begin creating the local objects and filling the local
-tables with remote data. It is possible to leave the loader
-and db_object setting empty on all but one pipeline config -
-but that runs the risk of events being processed by the
-lookup only configs before the loader fills the local db with
-remote data. To remove this risk, all pipelines can define
-loaders and db_objects (use the `preserve_existing` option).
-In this case all the loaders will fill the local db. This
-has been tested to work without error. Be careful if using
-scheduled loading, make sure the configs have an interleaved
-schedule.
-
-===== Different lookup enhancement
-The loaders, db_objects and lookups should reference
-independent local tables to ensure that there is no conflicts
-when the plugins from each pipeline modify the local database.
-
+As the lookup database engine, an in-memory Apache Derby instance,
+is a single instance for the whole JVM, each plugin instance whether
+per pipeline or as multiple plugins in one pipeline will use a
+unique database inside the shared Derby engine so there should be
+no conflicts with plugins creating tables and populating them even
+if the same settings are used. However you should watch the lookup
+results and the logs initially to verify correct operation.
 
 [id="plugins-{type}s-{plugin}-options"]
 ==== Jdbc_static Filter Configuration Options
@@ -378,10 +450,6 @@ the Oracle JDBC driver (ojdbc6.jar) the correct `jdbc_driver_class` is `"Java::o
   * Value type is <<string,string>>
   * There is no default value for this setting.
 
-Tentative of abstracting JDBC logic to a mixin
-for potential reuse in other plugins (input/output)
-This method is called when someone includes this module
-Add these methods to the 'base' given.
 JDBC driver library path to third party driver library. In case of multiple libraries being
 required you can pass them separated by a comma.
 
