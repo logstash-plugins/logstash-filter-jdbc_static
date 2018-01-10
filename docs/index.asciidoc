@@ -89,13 +89,13 @@ filter {
     ]
     local_lookups => [
       {
-        id = "local-servers"
+        id => "local-servers"
         query => "select descr as description from servers WHERE ip = :ip"
         parameters => {ip => "[from_ip]"}
         target => "server"
       },
       {
-        id = "local-users"
+        id => "local-users"
         query => "select firstname, lastname from users WHERE userid = :id"
         parameters => {id => "[loggedin_userid]"}
         target => "user"
@@ -314,6 +314,8 @@ specific schedule. This scheduling syntax is powered by
 https://github.com/jmettraux/rufus-scheduler[rufus-scheduler]. The
 syntax is cron-like with some extensions specific to Rufus
 (e.g. timezone support ).
+Further documentation describing this syntax can be found
+https://github.com/jmettraux/rufus-scheduler#parsing-cronlines-and-time-strings[here].
 
 Examples:
 
@@ -445,7 +447,9 @@ An optional identifier. This is used to identify the lookup that is
 generating error messages and log lines. If you omit this setting then a
 default id is used instead.
 query:::
-A SQL SELECT statement that
+A SQL SELECT statement that is executed to achieve the lookup. To use
+parameters, use named parameter syntax, for example
+"SELECT * FROM MYTABLE WHERE ID = :id"
 parameters:::
 A key/value Hash or dictionary. The key (LHS) is the text that is
 substituted for in the SQL statement
@@ -481,8 +485,6 @@ useful when defining multiple lookups.
 tag_on_default_use:::
 An optional string that overrides the plugin level setting. This is
 useful when defining multiple lookups.
-
-Further documentation describing this syntax can be found https://github.com/jmettraux/rufus-scheduler#parsing-cronlines-and-time-strings[here].
 
 [id="plugins-{type}s-{plugin}-common-options"]
 include::{include_path}/{type}.asciidoc[]
