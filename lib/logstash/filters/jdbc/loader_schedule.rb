@@ -8,11 +8,11 @@ module LogStash module Filters module Jdbc
 
     def to_log_string
       message = ""
-      message.concat "these months in the year [#{@cronline.months.join(", ")}];" unless @cronline.months.nil?
-      message.concat "these days in the month [#{@cronline.days.join(", ")}];" unless @cronline.days.nil?
-      message.concat "these hours in the day [#{@cronline.hours.join(", ")}];" unless @cronline.hours.nil?
-      message.concat "these minutes in the hour [#{@cronline.minutes.join(", ")}];" unless @cronline.minutes.nil?
-      message.concat "these seconds in the minute [#{@cronline.seconds.join(", ")}]" unless @cronline.seconds.nil?
+      message.concat "these months in the year [#{@cronline.months.to_a.join(", ")}];" unless @cronline.months.nil?
+      message.concat "these days in the month [#{@cronline.days.to_a.join(", ")}];" unless @cronline.days.nil?
+      message.concat "these hours in the day [#{@cronline.hours.to_a.join(", ")}];" unless @cronline.hours.nil?
+      message.concat "these minutes in the hour [#{@cronline.minutes.to_a.join(", ")}];" unless @cronline.minutes.nil?
+      message.concat "these seconds in the minute [#{@cronline.seconds.to_a.join(", ")}]" unless @cronline.seconds.nil?
       if !message.empty?
         message.prepend "Scheduled for: "
       end

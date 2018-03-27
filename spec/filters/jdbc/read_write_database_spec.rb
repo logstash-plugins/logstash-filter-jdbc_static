@@ -49,6 +49,7 @@ module LogStash module Filters module Jdbc
           allow(::Sequel).to receive(:connect).twice.and_return(db)
           allow(loader).to receive(:fetch).and_return([{:a => 1, :b => 2, :c => 3}])
           allow(loader).to receive(:table).and_return(table_name)
+          allow(loader).to receive(:id).and_return("some_id")
           allow(loader).to receive(:import_file_temp_directory).and_return(temp_import_path_plugin)
           allow(described_class).to receive(:random_name).and_return(random_table_name)
           loaders.push(loader)
