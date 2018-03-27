@@ -77,7 +77,7 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   #
   # There is no schedule by default. If no schedule is given, then the loaders are run
   # exactly once.
-  config :loader_schedule, :validate => [LogStash::Filters::Jdbc::LoaderSchedule]
+  config :loader_schedule, :required => false, :validate => LogStash::Filters::Jdbc::LoaderSchedule
 
   # Append values to the `tags` field if sql error occured
   # Alternatively, individual `tag_on_failure` arrays can be added to each lookup hash
@@ -101,6 +101,9 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   # Remote Load DB Jdbc password
   config :jdbc_password, :validate => :password
 
+  # directory for temp files created during bulk loader import.
+  config :import_file_temp_directory, :validate => :string, :default => ::File.join(Dir.tmpdir, "logstash", config_name, "import_data")
+
   # NOTE: For the initial release, we are not allowing the user to specify their own local lookup JDBC DB settings.
   # In the near future we have to consider identical config running in multiple pipelines stomping over each other
   # when the database names are common across configs because there is only one Derby server in memory per JVM.
@@ -123,6 +126,11 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
         unless validation_errors.nil?
           return false, validation_errors
         end
+      elsif validator.respond_to?(:find_validation_errors)
+        validation_errors = validator.find_validation_errors(value)
+        unless validation_errors.nil?
+          return false, validation_errors
+        end
       else
         return old_validate_value(value, validator)
       end
@@ -135,7 +143,6 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   def register
     prepare_data_dir
     prepare_runner
-    @loader_runner.initial_load
   end
 
   def filter(event)
@@ -149,12 +156,18 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     @processor.close
   end
 
+  def loader_runner
+    # use for test verification
+    @loader_runner
+  end
+
   private
 
   def prepare_data_dir
     # later, when local persistent databases are allowed set this property to LS_HOME/data/jdbc-static/
     # must take multi-pipelines into account and more than one config using the same jdbc-static settings
     java.lang.System.setProperty("derby.system.home", ENV["HOME"])
+    logger.info("derby.system.home is: #{java.lang.System.getProperty("derby.system.home")}")
   end
 
   def prepare_runner
@@ -168,18 +181,20 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     @processor = Jdbc::LookupProcessor.new(@local_lookups, global_lookup_options)
     runner_args.unshift(@processor.local)
     if @loader_schedule
-      require "rufus/scheduler"
       args = []
       @loader_runner = Jdbc::RepeatingLoadRunner.new(*runner_args)
-
+      @loader_runner.initial_load
       cronline = Jdbc::LoaderSchedule.new(@loader_schedule)
+      cronline.to_log_string.tap do |msg|
+        logger.info("Scheduler operations: #{msg}") unless msg.empty?
+      end
+      logger.info("Scheduler scan for work frequency is: #{cronline.schedule_frequency}")
       rufus_args = {:max_work_threads => 1, :frequency => cronline.schedule_frequency}
-
       @scheduler = Rufus::Scheduler.new(rufus_args)
       @scheduler.cron(cronline.loader_schedule, @loader_runner)
-      @scheduler.join
     else
       @loader_runner = Jdbc::SingleLoadRunner.new(*runner_args)
+      @loader_runner.initial_load
     end
   end
 
@@ -211,6 +226,9 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     end
     if @jdbc_password
       options["jdbc_password"] = @jdbc_password
+    end
+    if @import_file_temp_directory
+      options["import_file_temp_directory"] = @import_file_temp_directory
     end
   end
 end end end

@@ -14,7 +14,7 @@ module LogStash module Filters module Jdbc
       describe "initializing" do
         it "tests the connection with defaults" do
           expect(Sequel::JDBC).to receive(:load_driver).once.with(driver_class)
-          expect(Sequel).to receive(:connect).once.with(connection_string, {:test => true}) #.and_return(db)
+          expect(Sequel).to receive(:connect).once.with(connection_string, {:test => true})
           expect(read_only_db.empty_record_set).to eq([])
         end
 

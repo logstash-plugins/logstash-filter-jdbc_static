@@ -1,3 +1,5 @@
+# encoding: utf-8
+require "fileutils"
 require "sequel"
 require "sequel/adapters/jdbc"
 require "java"
@@ -49,6 +51,8 @@ module LogStash module Filters module Jdbc
       rescue *CONNECTION_ERRORS => err
         # we do not raise an error when there is a connection error, we hope that the connection works next time
         logger.error(err_message, :exception => err.message, :backtrace => err.backtrace.take(8))
+      else
+        raise "::Sequel.connect returned a nil db instance, connection_string: #{@connection_string}, options: #{@options_hash.inspect}" if @db.nil?
       end
     end
 
@@ -80,7 +84,10 @@ module LogStash module Filters module Jdbc
 
     def verify_connection(connection_string, driver_class, driver_library, user, password)
       begin
-        require driver_library if driver_library
+        if driver_library
+          class_loader = java.lang.ClassLoader.getSystemClassLoader().to_java(java.net.URLClassLoader)
+          class_loader.add_url(java.io.File.new(driver_library).toURI().toURL())
+        end
       rescue LoadError => e
         msg = "The driver library cannot be loaded. The system error was: '#{e.message}'."
         raise wrap_error(ConnectionJdbcException, e, msg)
