@@ -60,7 +60,7 @@ module LogStash module Filters
       lambda do |fd|
         fd.puts "'10.1.1.1', 'ldn-server-1', 'LDN-2-3-4'"
         fd.puts "'10.2.1.1', 'nyc-server-1', 'NYC-5-2-8'"
-        fd.puts "'10.3.1.1', 'mv-server-1', 'MV-9-6-4'"
+        fd.puts "'10.3.1.1', 'mv-serv''r-1', 'MV-9-6-4'"
       end
     end
 
@@ -91,7 +91,7 @@ module LogStash module Filters
         it "enhances an event" do
           plugin.register
           plugin.filter(event)
-          expect(event.get("server")).to eq([{"ip"=>"10.3.1.1", "name"=>"mv-server-1", "location"=>"MV-9-6-4"}])
+          expect(event.get("server")).to eq([{"ip"=>"10.3.1.1", "name"=>"mv-serv'r-1", "location"=>"MV-9-6-4"}])
         end
       end
 
@@ -140,7 +140,7 @@ module LogStash module Filters
           expect(static_filter.loader_runner.reload_count).to be > 1
           static_filter.stop
           Timecop.return
-          expect(event.get("server")).to eq([{"ip"=>"10.3.1.1", "name"=>"mv-server-1", "location"=>"MV-9-6-4"}])
+          expect(event.get("server")).to eq([{"ip"=>"10.3.1.1", "name"=>"mv-serv'r-1", "location"=>"MV-9-6-4"}])
         end
       end
     end
