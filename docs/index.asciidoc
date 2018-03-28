@@ -117,6 +117,7 @@ filter {
     add_field => { user_firstname => "%{[user][0][firstname]}" } <5>
     add_field => { user_lastname => "%{[user][0][lastname]}" } <5>
     remove_field => ["server", "user"]
+    import_file_temp_directory => "/tmp/logstash/jdbc_static/import_data"
     jdbc_user => "logstash"
     jdbc_password => "example"
     jdbc_driver_class => "org.postgresql.Driver"
@@ -180,6 +181,7 @@ filter {
         target => "server"
       }
     ]
+    import_file_temp_directory => "/tmp/logstash/jdbc_static/import_data"
     jdbc_user => "logstash"
     jdbc_password => "logstash??"
     jdbc_driver_class => "org.postgresql.Driver"
@@ -257,6 +259,7 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 | <<plugins-{type}s-{plugin}-jdbc_user>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-tag_on_failure>> |<<array,array>>|No
 | <<plugins-{type}s-{plugin}-tag_on_default_use>> |<<array,array>>|No
+| <<plugins-{type}s-{plugin}-import_file_temp_directory>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-loader_schedule>>|<<string,string>>|No
 | <<plugins-{type}s-{plugin}-loaders>>|<<array,array>>|No
 | <<plugins-{type}s-{plugin}-local_db_objects>>|<<array,array>>|No
@@ -332,6 +335,21 @@ Append values to the `tags` field if no record was found and default values were
 
   * Value type is <<array,array>>
   * Default value is `["_jdbcstaticfailure"]`
+
+Append values to the `tags` field if a SQL error occurred.
+
+[id="plugins-{type}s-{plugin}-import_file_temp_directory"]
+===== `import_file_temp_directory`
+
+  * Value type is <<string,string>>
+  * Default value is derived from the Ruby temp directory + plugin_name + "import_data"
+  * e.g. `"/tmp/logstash/jdbc_static/import_data"`
+
+Previous versions of this plugin did not handle loading datasets of more than
+several thousand rows well due to an open bug in Apache Derby. This setting
+introduces an alternative way of loading large recordsets. As each row is
+received it is spooled to file and then that file is imported using a
+system 'import table' system call.
 
 Append values to the `tags` field if a SQL error occurred.
 
