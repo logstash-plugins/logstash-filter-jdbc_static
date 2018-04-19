@@ -20,7 +20,7 @@ include::{include_path}/plugin_header.asciidoc[]
 
 ==== Description
 
-This filter enriches events with data pre-loaded from a remote database. 
+This filter enriches events with data pre-loaded from a remote database.
 
 This filter is best suited for enriching events with reference data that is
 static or does not change very often, such as environments, users, and products.
@@ -38,13 +38,13 @@ and lookups.
 *local_db_objects*::
 
 Define the columns, types, and indexes used to build the local database
-structure. The column names and types should match the external database. 
+structure. The column names and types should match the external database.
 Define as many of these objects as needed to build the local database
-structure. 
+structure.
 
 *loaders*::
 
-Query the external database to fetch the dataset that will be cached locally. 
+Query the external database to fetch the dataset that will be cached locally.
 Define as many loaders as needed to fetch the remote data. Each
 loader should fill a table defined by `local_db_objects`. Make sure
 the column names and datatypes in the loader SQL statement match the
@@ -53,7 +53,7 @@ database connection.
 
 *lookups*::
 
-Perform lookup queries on the local database to enrich the events. 
+Perform lookup queries on the local database to enrich the events.
 Define as many lookups as needed to enhance the event from all
 lookup tables in one pass. Ideally the SQL statement should only
 return one row. Any rows are converted to Hash objects and are
@@ -106,7 +106,7 @@ filter {
         target => "server"
       },
       {
-        id => "local-users" 
+        id => "local-users"
         query => "select firstname, lastname from users WHERE userid = :id"
         parameters => {id => "[loggedin_userid]"}
         target => "user" <4>
@@ -208,10 +208,10 @@ select * from ref.local_ips order by ip;
  10.2.3.30 | Events Server
  10.2.3.40 | Payroll Server
  10.2.3.50 | Uploads Server
- 
+
 
 The events are enriched with a description of the server based on the value of
-the IP: 
+the IP:
 
 [source,shell]
 {
@@ -299,8 +299,8 @@ if you are using the Oracle JDBC driver (ojdbc6.jar), the correct
   * Value type is <<string,string>>
   * There is no default value for this setting.
 
-JDBC driver library path to third-party driver library. If multiple
-libraries are required, pass them as a comma-separated list. 
+JDBC driver library path to third-party driver library. Use comma separated paths
+in one string if you need multiple libraries.
 
 If the driver class is not provided, the plugin looks for it in the Logstash
 Java classpath.

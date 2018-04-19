@@ -86,7 +86,9 @@ module LogStash module Filters module Jdbc
       begin
         if driver_library
           class_loader = java.lang.ClassLoader.getSystemClassLoader().to_java(java.net.URLClassLoader)
-          class_loader.add_url(java.io.File.new(driver_library).toURI().toURL())
+          driver_library.split(",").each do |driver_path|
+            make_driver_path_loadable(class_loader, driver_path.strip)
+          end
         end
       rescue LoadError => e
         msg = "The driver library cannot be loaded. The system error was: '#{e.message}'."
@@ -111,6 +113,11 @@ module LogStash module Filters module Jdbc
       ensure
         db.disconnect unless db.nil?
       end
+    end
+
+    def make_driver_path_loadable(class_loader, driver_path)
+      # so we can set an expectation in rspec
+      class_loader.add_url(java.io.File.new(driver_path).toURI().toURL())
     end
 
     def post_initialize()
