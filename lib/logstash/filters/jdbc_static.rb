@@ -102,7 +102,7 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   config :jdbc_password, :validate => :password
 
   # directory for temp files created during bulk loader import.
-  config :import_file_temp_directory, :validate => :string, :default => ::File.join(Dir.tmpdir, "logstash", config_name, "import_data")
+  config :staging_directory, :validate => :string, :default => ::File.join(Dir.tmpdir, "logstash", config_name, "import_data")
 
   # NOTE: For the initial release, we are not allowing the user to specify their own local lookup JDBC DB settings.
   # In the near future we have to consider identical config running in multiple pipelines stomping over each other
@@ -227,8 +227,8 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     if @jdbc_password
       options["jdbc_password"] = @jdbc_password
     end
-    if @import_file_temp_directory
-      options["import_file_temp_directory"] = @import_file_temp_directory
+    if @staging_directory
+      options["staging_directory"] = @staging_directory
     end
   end
 end end end

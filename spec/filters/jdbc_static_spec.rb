@@ -52,7 +52,7 @@ module LogStash module Filters
     let(:mixin_settings) do
       { "jdbc_user" => ENV['USER'], "jdbc_driver_class" => "org.apache.derby.jdbc.EmbeddedDriver",
         "jdbc_connection_string" => "jdbc:derby:memory:testdb;create=true",
-        "import_file_temp_directory" => temp_import_path_plugin
+        "staging_directory" => temp_import_path_plugin
       }
     end
 

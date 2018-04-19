@@ -12,7 +12,7 @@ module LogStash module Filters module Jdbc
 
     attr_reader :id, :table, :query, :max_rows
     attr_reader :connection_string, :driver_library, :driver_class
-    attr_reader :user, :password, :import_file_temp_directory
+    attr_reader :user, :password, :staging_directory
 
     def build_remote_db
       @remote = ReadOnlyDatabase.create(connection_string, driver_class, driver_library, user, password)
@@ -108,9 +108,9 @@ module LogStash module Filters module Jdbc
         @option_errors << "The 'jdbc_password' option for '#{@table}' must be a string"
       end
 
-      @import_file_temp_directory = @options["import_file_temp_directory"]
-      if @import_file_temp_directory
-        FileUtils.mkdir_p(@import_file_temp_directory)
+      @staging_directory = @options["staging_directory"]
+      if @staging_directory
+        FileUtils.mkdir_p(@staging_directory)
       end
 
       @valid = @option_errors.empty?
