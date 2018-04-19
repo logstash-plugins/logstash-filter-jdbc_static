@@ -87,7 +87,8 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
   config :tag_on_default_use, :validate => :array, :default => ["_jdbcstaticdefaultsused"]
 
   # Remote Load DB Jdbc driver library path to third party driver library.
-  config :jdbc_driver_library, :validate => :path
+  # Use comma separated paths in one string if you need more than one library.
+  config :jdbc_driver_library, :validate => :string
 
   # Remote Load DB Jdbc driver class to load, for example "oracle.jdbc.OracleDriver" or "org.apache.derby.jdbc.ClientDriver"
   config :jdbc_driver_class, :validate => :string, :required => true
