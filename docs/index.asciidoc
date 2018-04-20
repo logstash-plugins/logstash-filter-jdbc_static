@@ -118,6 +118,7 @@ filter {
     add_field => { user_lastname => "%{[user][0][lastname]}" } <5>
     remove_field => ["server", "user"]
     staging_directory => "/tmp/logstash/jdbc_static/import_data"
+    loader_schedule => "* */2 * * *" # run loaders every 2 hours
     jdbc_user => "logstash"
     jdbc_password => "example"
     jdbc_driver_class => "org.postgresql.Driver"
