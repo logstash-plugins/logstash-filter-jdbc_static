@@ -6,7 +6,7 @@ require "sequel/adapters/jdbc"
 require "stud/temporary"
 require "timecop"
 
-LogStash::Logging::Logger::configure_logging("ERROR")
+# LogStash::Logging::Logger::configure_logging("WARN")
 
 module LogStash module Filters
   describe JdbcStatic do
