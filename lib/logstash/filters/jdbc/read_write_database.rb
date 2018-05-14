@@ -32,7 +32,7 @@ module LogStash module Filters module Jdbc
         @rwlock.writeLock().lock()
         db_object.build(@db)
         if db_object.index_columns.empty?
-          logger.warn("db_object '#{db_object.name}': `index_columns` is optional but on larger datasets consider adding an index on the lookup column, it will improve performance")
+          logger.warn("local_db_object '#{db_object.name}': `index_columns` is optional but on larger datasets consider adding an index on the lookup column, it will improve performance")
         end
       rescue *CONNECTION_ERRORS => err
         # we do not raise an error when there is a connection error, we hope that the connection works next time
