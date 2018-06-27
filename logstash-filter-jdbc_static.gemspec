@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name            = 'logstash-filter-jdbc_static'
-  s.version         = '1.0.4'
+  s.version         = '1.0.5'
   s.licenses        = ['Apache-2.0']
   s.summary         = "This filter executes a SQL query to fetch a SQL query result, store it locally then use a second SQL query to update an event."
   s.description     = "This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program"
@@ -25,7 +25,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'sequel'
   s.add_runtime_dependency 'tzinfo'
   s.add_runtime_dependency 'tzinfo-data'
-  s.add_runtime_dependency 'rufus-scheduler', '~> 3.4.0'
+  s.add_runtime_dependency 'rufus-scheduler', '< 3.5'
 
   s.add_development_dependency 'logstash-devutils'
   s.add_development_dependency 'timecop'
