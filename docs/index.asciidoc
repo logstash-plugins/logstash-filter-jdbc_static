@@ -131,6 +131,7 @@ filter {
 locally.
 <2> Defines the columns, types, and indexes used to build the local database
 structure. The column names and types should match the external database.
+The order of table definitions is significant and should match that of the loader queries.
 <3> Performs lookup queries on the local database to enrich the events.
 <4> Specifies the event field that will store the looked-up data. If the lookup
 returns multiple columns, the data is stored as a JSON object within the field.
