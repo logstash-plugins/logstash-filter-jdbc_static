@@ -173,7 +173,7 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
 
   def prepare_runner
     @parsed_loaders = @loaders.map do |options|
-      add_plugin_configs(options)
+      add_loader_configs(options)
       loader = Jdbc::Loader.new(options)
       loader.build_remote_db
       loader
@@ -212,7 +212,7 @@ module LogStash module Filters class JdbcStatic < LogStash::Filters::Base
     options
   end
 
-  def add_plugin_configs(options)
+  def add_loader_configs(options)
     if @jdbc_driver_library
       options["jdbc_driver_library"] = @jdbc_driver_library
     end

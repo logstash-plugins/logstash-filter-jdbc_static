@@ -1,5 +1,6 @@
 # encoding: utf-8
 require "logstash/devutils/rspec/spec_helper"
+require "logstash-filter-jdbc_static_jars"
 require "logstash/filters/jdbc/lookup_processor"
 
 module LogStash module Filters module Jdbc

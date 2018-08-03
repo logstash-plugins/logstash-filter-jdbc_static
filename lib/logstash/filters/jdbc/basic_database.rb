@@ -24,11 +24,11 @@ module LogStash module Filters module Jdbc
     end
 
     def self.create(
-      connection_string = MEMORY_DERBY_LOCAL_CONNECTION_STRING,
-      driver_class = EMBEDDED_DERBY_DRIVER_CLASS,
-      driver_library = nil,
-      user = nil,
-      password = nil)
+          connection_string = MEMORY_DERBY_LOCAL_CONNECTION_STRING,
+          driver_class = EMBEDDED_DERBY_DRIVER_CLASS,
+          driver_library = nil,
+          user = nil,
+          password = nil)
       instance = new
       instance.post_create(connection_string, driver_class, driver_library, user, password)
       instance

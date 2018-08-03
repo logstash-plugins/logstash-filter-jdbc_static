@@ -38,6 +38,7 @@ module LogStash module Filters module Jdbc
           "lookup_jdbc_driver_class",
           "lookup_jdbc_driver_library").compact)
         @local.connect(CONNECTION_ERROR_MSG)
+        @lookups.each { |lookup| lookup.add_lookup_to_fetcher(@local) }
       end
     end
 

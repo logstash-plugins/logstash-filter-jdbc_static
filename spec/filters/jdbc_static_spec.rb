@@ -25,7 +25,7 @@ module LogStash module Filters
 
     let(:local_db_objects) do
       [
-        {"name" => "servers", "index_columns" => ["ip"], "columns" => [["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
+        {"name" => "servers", "preserve_existing" => true, "index_columns" => ["ip"], "columns" => [["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
       ]
     end
 
@@ -50,7 +50,8 @@ module LogStash module Filters
     end
 
     let(:mixin_settings) do
-      { "jdbc_user" => ENV['USER'], "jdbc_driver_class" => "org.apache.derby.jdbc.EmbeddedDriver",
+      { "jdbc_user" => ENV['USER'],
+        "jdbc_driver_class" => "org.apache.derby.jdbc.EmbeddedDriver",
         "jdbc_connection_string" => "jdbc:derby:memory:testdb;create=true",
         "staging_directory" => temp_import_path_plugin
       }
@@ -127,7 +128,7 @@ module LogStash module Filters
       context "under normal conditions when index_columns is not specified" do
         let(:local_db_objects) do
           [
-            {"name" => "servers", "columns" => [["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
+            {"name" => "servers", "preserve_existing" => true, "columns" => [["ip", "varchar(64)"], ["name", "varchar(64)"], ["location", "varchar(64)"]]},
           ]
         end
         it "enhances an event" do

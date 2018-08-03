@@ -1,5 +1,6 @@
 # encoding: utf-8
 require_relative "basic_database"
+require "jruby_jdbc_static"
 
 module LogStash module Filters module Jdbc
   class ReadWriteDatabase < BasicDatabase
@@ -19,10 +20,11 @@ module LogStash module Filters module Jdbc
 
     alias populate_all repopulate_all
 
-    def fetch(statement, parameters)
+    def fetch_with_lock(lookup_id, event)
       @rwlock.readLock().lock()
       # any exceptions should bubble up because we need to set failure tags etc.
-      @db[statement, parameters].all
+      # see `post_create`,
+      @fetcher.fetch_and_update(lookup_id, event)
     ensure
       @rwlock.readLock().unlock()
     end
@@ -52,6 +54,18 @@ module LogStash module Filters module Jdbc
       mutated_connection_string = connection_string.sub("____", unique_db_name)
       verify_connection(mutated_connection_string, driver_class, driver_library, user, password)
       connect("Connection error when connecting to lookup db")
+      opts = {
+        "username" => user,
+        "password" => password,
+        "jdbc_driver_library" => driver_library,
+        "jdbc_driver_class" => driver_class,
+        "jdbc_connection_string" => mutated_connection_string #.sub(";create=true", "")
+      }
+      @fetcher = Jdbc::Fetcher.new(opts)
+    end
+
+    def add_lookup(opts)
+      @fetcher.add_lookup(opts)
     end
 
     private

@@ -30,6 +30,7 @@ module LogStash module Filters module Jdbc
           expect(::Sequel::JDBC).to receive(:load_driver).once.with("a driver class")
           expect(::Sequel).to receive(:connect).once.with(connection_str, {:user => user, :password => password.value, :test => true}).and_return(db)
           expect(::Sequel).to receive(:connect).once.with(connection_str, {:user => user, :password => password.value}).and_return(db)
+          expect(Jdbc::Fetcher).to receive(:new).once.and_return(Object.new)
           described_class.create(connection_str, "a driver class", nil, user, password)
         end
       end
@@ -41,6 +42,7 @@ module LogStash module Filters module Jdbc
         let(:table_name) { "users" }
         let(:random_table_name)  { "foobarbaz" }
         let(:multi_insert_sql) { "INSERT VALUES (1, 2, 3)" }
+        let(:fetcher_double) { double("Jdbc::Fetcher") }
 
         before(:each) do
           FileUtils.mkdir_p(temp_import_path_plugin)
@@ -60,6 +62,7 @@ module LogStash module Filters module Jdbc
           expect(dataset).to receive(:literal).and_return(1.to_s, 2.to_s, 3.to_s)
           import_file_path = ::File.join(temp_import_path_plugin, loader.table)
           expect(db).to receive(:execute_ddl).once.with("CALL SYSCS_UTIL.SYSCS_IMPORT_TABLE (null,'#{loader.table.upcase}','#{import_file_path}',null,'''',null,1)")
+          expect(db).to receive(:execute_ddl).once.with("CALL SYSCS_UTIL.SYSCS_UPDATE_STATISTICS(null,'#{loader.table.upcase}', null)")
           read_write_db.populate_all(loaders)
         end
 
@@ -68,15 +71,16 @@ module LogStash module Filters module Jdbc
           expect(dataset).to receive(:literal).and_return(1.to_s, 2.to_s, 3.to_s)
           import_file_path = ::File.join(temp_import_path_plugin, loader.table)
           expect(db).to receive(:execute_ddl).once.with("CALL SYSCS_UTIL.SYSCS_IMPORT_TABLE (null,'#{loader.table.upcase}','#{import_file_path}',null,'''',null,1)")
+          expect(db).to receive(:execute_ddl).once.with("CALL SYSCS_UTIL.SYSCS_UPDATE_STATISTICS(null,'#{loader.table.upcase}', null)")
           read_write_db.repopulate_all(loaders)
         end
 
-        it "the fetch method executes a parameterised SQL statement on the local db" do
-          statement = "select 1 from dual"
-          parameters = 42
-          expect(db).to receive(:[]).with(statement, parameters).once.and_return(dataset)
-          expect(dataset).to receive(:all).once.and_return([1,2,3])
-          read_write_db.fetch(statement, parameters)
+        it "the fetch_with_lock method delegates to the fetcher instance" do
+          allow(Jdbc::Fetcher).to receive(:new).and_return(fetcher_double)
+          id = "test"
+          event = Object.new
+          expect(fetcher_double).to receive(:fetch_and_update).with(id, event).once.and_return(LookupFailures.new)
+          read_write_db.fetch_with_lock(id, event)
         end
 
         it "lends the local db to a DbObject build instance method" do
