@@ -9,7 +9,7 @@ task :default do
 end
 
 task :vendor do
-  exit(1) unless system './gradlew vendor'
+  exit(1) unless system './gradlew check vendor'
 end
 
 task :clean do
@@ -18,28 +18,20 @@ task :clean do
   end
 end
 
-desc "Do bundle install and write gradle.properties"
-task :bundle_install do
-  `bundle install`
-  delete_create_gradle_properties
-end
-
-desc "Write gradle.properties" # used by travis
+desc "Write gradle.properties"
 task :write_gradle_properties do
   delete_create_gradle_properties
 end
 
-desc "Compile and vendor java into ruby for travis, its done bundle install already"
-task :travis_vendor => [:write_gradle_properties] do
-  exit(1) unless system './gradlew check vendor'
-  puts "-------------------> vendored jdbc_static jar via rake"
-end
-
 RSpec::Core::RakeTask.new(:spec)
 
-task :check => [:vendor, :spec]
-
-task :travis_test => [:travis_vendor, :spec]
+task :travis_test do
+  # bundle install done already
+  delete_create_gradle_properties
+  Rake::Task["vendor"].execute
+  puts "-------------------> vendored jdbc_static jar via rake"
+  Rake::Task["spec"].execute
+end
 
 desc "Run full check with custom Logstash path" # e.g. rake custom_ls_check[/elastic/tmp/logstash-5.5.3]
 task(:custom_ls_check, [:ls_dir] => [:clean]) do |task, args|
@@ -47,12 +39,12 @@ task(:custom_ls_check, [:ls_dir] => [:clean]) do |task, args|
   system(custom_ls_path_shell_script(ls_path))
 end
 
+# should invoke the same workflow as travis
 def custom_ls_path_shell_script(path)
   <<TXT
 export LOGSTASH_PATH='#{path}'
 export LOGSTASH_SOURCE=1
 bundle install
-bundle exec rake vendor
 bundle exec rake travis_test
 TXT
 end
