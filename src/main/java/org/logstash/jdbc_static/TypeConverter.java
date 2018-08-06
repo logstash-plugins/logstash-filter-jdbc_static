@@ -3,7 +3,6 @@ package org.logstash.jdbc_static;
 import org.jruby.Ruby;
 import org.jruby.RubyBignum;
 import org.jruby.ext.bigdecimal.RubyBigDecimal;
-import org.logstash.ext.JrubyTimestampExtLibrary;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -16,6 +15,8 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.logstash.ext.JrubyTimestampExtLibrary.RubyTimestamp;
 
 class TypeConverter {
     private static final Map<Integer, TypeConverter.Converter> CONVERTER_MAP = initConverters();
@@ -84,21 +85,21 @@ class TypeConverter {
             @Override
             public void convert(final Ruby ruby, final ResultSet rs, final int index, final String field, final ConvertResult result) throws SQLException {
                 final Date date = rs.getDate(index);
-                result.succeeded(field, date == null ? ruby.getNil() : new JrubyTimestampExtLibrary.RubyTimestamp(ruby, new org.logstash.Timestamp(date.getTime())));
+                result.succeeded(field, date == null ? ruby.getNil() : RubyTimestamp.newRubyTimestamp(ruby, new org.logstash.Timestamp(date.getTime())));
             }
         });
         converters.put(Types.TIME, new TypeConverter.Converter() {
             @Override
             public void convert(final Ruby ruby, final ResultSet rs, final int index, final String field, final ConvertResult result) throws SQLException {
                 final Time time = rs.getTime(index);
-                result.succeeded(field, time == null ? ruby.getNil() : new JrubyTimestampExtLibrary.RubyTimestamp(ruby, new org.logstash.Timestamp(time.getTime())));
+                result.succeeded(field, time == null ? ruby.getNil() : RubyTimestamp.newRubyTimestamp(ruby, new org.logstash.Timestamp(time.getTime())));
             }
         });
         converters.put(Types.TIMESTAMP, new TypeConverter.Converter() {
             @Override
             public void convert(final Ruby ruby, final ResultSet rs, final int index, final String field, final ConvertResult result) throws SQLException {
                 final Timestamp ts = rs.getTimestamp(index);
-                result.succeeded(field, ts == null ? ruby.getNil() : new JrubyTimestampExtLibrary.RubyTimestamp(ruby, new org.logstash.Timestamp(ts.getTime())));
+                result.succeeded(field, ts == null ? ruby.getNil() : RubyTimestamp.newRubyTimestamp(ruby, new org.logstash.Timestamp(ts.getTime())));
             }
         });
 

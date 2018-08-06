@@ -3,5 +3,4 @@
 require 'jar_dependencies'
 require_jar('org.apache.derby', 'derby', '10.14.2.0')
 require_jar('org.apache.derby', 'derbyclient', '10.14.2.0')
-require_jar('com.zaxxer', 'HikariCP', '3.2.0')
 require_jar('org.logstash.jdbc_static', 'jdbc_static_library', '1.0.6')

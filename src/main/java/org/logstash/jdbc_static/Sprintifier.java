@@ -6,6 +6,8 @@ import org.jruby.runtime.builtin.IRubyObject;
 import org.logstash.ext.JrubyEventExtLibrary;
 import org.logstash.ext.LookupFailures;
 
+import java.io.IOException;
+
 public class Sprintifier implements Fetchifier {
     private final RubyString reference;
 
@@ -15,8 +17,14 @@ public class Sprintifier implements Fetchifier {
 
     @Override
     public final IRubyObject fetch(final ThreadContext ctx, final JrubyEventExtLibrary.RubyEvent event, final LookupFailures lookupFailures) {
-        final RubyString string = (RubyString) event.ruby_sprintf(ctx, reference);
-        if (reference.eql(string)) {
+        final RubyString string;
+        try {
+            string = RubyString.newString(ctx.runtime, event.getEvent().sprintf(reference.toString()));
+            if (reference.eql(string)) {
+                lookupFailures.invalidParameterPush(reference);
+                return reference;
+            }
+        } catch (IOException e) {
             lookupFailures.invalidParameterPush(reference);
             return reference;
         }

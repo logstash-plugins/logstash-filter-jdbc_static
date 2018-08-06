@@ -7,7 +7,6 @@ import org.jruby.RubyNumeric;
 import org.jruby.RubyString;
 import org.jruby.ext.bigdecimal.RubyBigDecimal;
 import org.jruby.runtime.builtin.IRubyObject;
-import org.logstash.ext.JrubyTimestampExtLibrary;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -17,6 +16,8 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.logstash.ext.JrubyTimestampExtLibrary.RubyTimestamp;
 
 class ParameterConverter {
     private static final Map<String, ParameterConverter.Converter> CONVERTER_MAP = initConverters();
@@ -97,7 +98,7 @@ class ParameterConverter {
         final ParameterConverter.Converter tsconv = new ParameterConverter.Converter() {
             @Override
             public void convert(final int index, final PreparedStatement ps, final IRubyObject eventValue) throws SQLException {
-                final long millis = ((JrubyTimestampExtLibrary.RubyTimestamp) eventValue).getTimestamp().getTime().getMillis();
+                final long millis = ((RubyTimestamp) eventValue).getTimestamp().getTime().getMillis();
                 ps.setTimestamp(index, new Timestamp(millis));
             }
         };
@@ -115,7 +116,7 @@ class ParameterConverter {
         if (o instanceof RubyBigDecimal) {
             return "BigDecimal";
         }
-        if (o instanceof JrubyTimestampExtLibrary.RubyTimestamp) {
+        if (o instanceof RubyTimestamp) {
             return "Timestamp";
         }
         if (o instanceof RubyNil) {
