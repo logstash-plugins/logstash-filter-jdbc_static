@@ -30,6 +30,7 @@ dependencies {
 
     // This dependency is used internally, and not exposed to consumers on their own compile classpath.
     implementation 'org.jruby:jruby-core:9.1.13.0'
+//    implementation 'org.jruby:jruby-core:1.7.27'
     implementation 'org.apache.logging.log4j:log4j-api:2.6.2'
     implementation 'org.apache.logging.log4j:log4j-core:2.6.2'
     implementation fileTree(dir: logstashCoreGemPath, include: '**/*.jar')

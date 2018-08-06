@@ -46,7 +46,7 @@ public final class LookupFailures extends RubyObject {
     public IRubyObject rubyInvalidColumns(final ThreadContext ctx) {
         final RubyArray output = RubyArray.newArray(ctx.runtime, invalidColumns.size());
         for (final String message : invalidColumns) {
-            output.push(RubyString.newString(ctx.runtime, message));
+            output.append(RubyString.newString(ctx.runtime, message));
         }
         return output;
     }
@@ -67,7 +67,7 @@ public final class LookupFailures extends RubyObject {
     }
 
     public void invalidParameterPush(final IRubyObject invalidParameter) {
-        invalidParameters.push(invalidParameter);
+        invalidParameters.append(invalidParameter);
     }
 
     public void invalidColumnPush(final String invalidColumnMessage) {

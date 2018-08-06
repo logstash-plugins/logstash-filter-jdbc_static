@@ -89,7 +89,7 @@ public class FetchUpdate implements Lookup {
                             }
                         }
                         if (!hash.isEmpty()) {
-                            array.push(hash);
+                            array.append(hash);
                         }
                     }
                     rubyEvent.ruby_set_field(ctx, this.target, array);
