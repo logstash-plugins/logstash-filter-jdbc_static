@@ -14,26 +14,16 @@ import org.logstash.ext.JrubyTimestampExtLibrary;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static org.logstash.jdbc_static.TestCommon.isLogstashTimestampLoaded;
 import static org.logstash.jdbc_static.TestCommon.loadRubyBigDecimal;
-import static org.logstash.jdbc_static.TestCommon.loadViaLibraryLoad;
-import static org.logstash.jdbc_static.TestCommon.loadViaRubyUtil;
+import static org.logstash.jdbc_static.TestCommon.tryLoadRubyTimestampLibrary;
 
 public class GetifierTest {
-
-    private Ruby ruby = Ruby.newInstance();
+    private Ruby ruby = Ruby.getGlobalRuntime();
 
     @Before
     public void setUp() throws Exception {
-        ruby = Ruby.newInstance();
         loadRubyBigDecimal(ruby);
-        boolean progress = isLogstashTimestampLoaded(ruby);
-        if (!progress) {
-            progress = loadViaRubyUtil(ruby);
-        }
-        if (!progress) {
-            loadViaLibraryLoad(ruby);
-        }
+        tryLoadRubyTimestampLibrary(ruby);
     }
 
     private String getType(final IRubyObject o) {

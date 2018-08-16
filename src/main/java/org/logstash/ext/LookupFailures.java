@@ -14,9 +14,12 @@ import java.util.Set;
 
 public final class LookupFailures extends RubyObject {
     private RubyArray invalidParameters;
-    private Set<String> invalidColumns = new HashSet<>(256);
-    private boolean lookupByIdInvalid = false;
 
+    private Set<String> invalidColumns = new HashSet<>(256);
+
+    private boolean lookupByIdInvalid = false;
+    private Set<String> allColumns = new HashSet<>(256);
+    private boolean doColumnCheck = false;
     public LookupFailures(final Ruby runtime, final RubyClass metaClass) {
         super(runtime, metaClass);
         javaInit(runtime);
@@ -37,9 +40,37 @@ public final class LookupFailures extends RubyObject {
         return ctx.nil;
     }
 
+    @JRubyMethod
+    public IRubyObject clear(final ThreadContext ctx) {
+        this.invalidParameters.clear();
+        this.invalidColumns.clear();
+        this.doColumnCheck = false;
+        return ctx.nil;
+    }
+
+    @JRubyMethod(name = "check_columns")
+    public IRubyObject setDoColumnCheck(ThreadContext ctx) {
+        this.doColumnCheck = true;
+        return this;
+    }
+
+    @JRubyMethod(name = "checking_columns?")
+    public IRubyObject checkingColumnsP(ThreadContext ctx) {
+        return this.doColumnCheck ? ctx.tru : ctx.fals;
+    }
+
     @JRubyMethod(name = "invalid_parameters")
     public IRubyObject rubyInvalidParameters(final ThreadContext ctx) {
         return invalidParameters;
+    }
+
+    @JRubyMethod(name = "all_columns")
+    public IRubyObject rubyAllColumns(final ThreadContext ctx) {
+        final RubyArray output = RubyArray.newArray(ctx.runtime, allColumns.size());
+        for (final String column : allColumns) {
+            output.append(RubyString.newString(ctx.runtime, column));
+        }
+        return output;
     }
 
     @JRubyMethod(name = "invalid_columns")
@@ -49,6 +80,11 @@ public final class LookupFailures extends RubyObject {
             output.append(RubyString.newString(ctx.runtime, message));
         }
         return output;
+    }
+
+    @JRubyMethod(name= "successful?")
+    public IRubyObject rubySuccessfulP(final ThreadContext ctx) {
+        return this.lookupByIdInvalid || this.invalidColumns.size() > 0 || parametersAreInvalid() ? ctx.fals : ctx.tru;
     }
 
     @JRubyMethod(name = "invalid_id_for_lookup?")
@@ -66,12 +102,28 @@ public final class LookupFailures extends RubyObject {
         return ctx.runtime.newBoolean(parametersAreInvalid());
     }
 
+    public Set<String> getInvalidColumns() {
+        return invalidColumns;
+    }
+
+    public boolean isCheckingColumns() {
+        return doColumnCheck;
+    }
+
     public void invalidParameterPush(final IRubyObject invalidParameter) {
         invalidParameters.append(invalidParameter);
     }
 
+    public void columnPush(final String validColumn) {
+        if (doColumnCheck) {
+            allColumns.add(validColumn);
+        }
+    }
+
     public void invalidColumnPush(final String invalidColumnMessage) {
-        invalidColumns.add(invalidColumnMessage);
+        if (doColumnCheck) {
+            invalidColumns.add(invalidColumnMessage);
+        }
     }
 
     public void lookupIdIsInvalid() {

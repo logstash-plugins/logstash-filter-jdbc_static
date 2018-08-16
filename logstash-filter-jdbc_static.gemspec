@@ -23,6 +23,7 @@ Gem::Specification.new do |s|
     s.add_runtime_dependency 'rake', '~> 12.2.0'
   end
   s.add_runtime_dependency "logstash-core-plugin-api", ">= 1.60", "<= 2.99"
+  s.add_runtime_dependency 'concurrent-ruby'
   s.add_runtime_dependency 'sequel'
   s.add_runtime_dependency 'tzinfo'
   s.add_runtime_dependency 'tzinfo-data'

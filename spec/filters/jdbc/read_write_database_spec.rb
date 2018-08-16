@@ -79,8 +79,9 @@ module LogStash module Filters module Jdbc
           allow(Jdbc::Fetcher).to receive(:new).and_return(fetcher_double)
           id = "test"
           event = Object.new
-          expect(fetcher_double).to receive(:fetch_and_update).with(id, event).once.and_return(LookupFailures.new)
-          read_write_db.fetch_with_lock(id, event)
+          failures = LookupFailures.new
+          expect(fetcher_double).to receive(:fetch_and_update).with(id, event, failures).once
+          read_write_db.fetch_with_lock(id, event, failures)
         end
 
         it "lends the local db to a DbObject build instance method" do

@@ -21,7 +21,7 @@ public class HikariCpDataSource implements PoolDataSource {
             config.setUsername(username);
             config.setPassword(password);
         }
-        config.addDataSourceProperty("maximumPoolSize", String.valueOf(poolSize));
+//        config.addDataSourceProperty("maximumPoolSize", String.valueOf(poolSize));
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");

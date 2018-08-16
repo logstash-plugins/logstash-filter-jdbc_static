@@ -21,9 +21,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class FetchUpdate implements Lookup {
     private final String statement;
@@ -31,6 +33,7 @@ public class FetchUpdate implements Lookup {
     private final Map<String, Fetchifier> parameters;
     private final String[] sortedParameterKeys;
     private final RubyString target;
+    private Set<String> invalidColumnLabels = new HashSet<>(256);
     private static final Logger LOGGER = LogManager.getLogger(FetchUpdate.class);
 
     public FetchUpdate(String id, final RubyString statement, final RubyHash rubyParameters, final RubyString target) {
@@ -67,12 +70,11 @@ public class FetchUpdate implements Lookup {
     }
 
     @Override
-    public final void fetchAndUpdate(final ThreadContext ctx, final PoolDataSource pool, final IRubyObject event, final LookupFailures lookupFailures) {
+    public final void fetchAndUpdate(final ThreadContext ctx, final PoolDataSource pool, final JrubyEventExtLibrary.RubyEvent rubyEvent, final LookupFailures lookupFailures) {
         final Ruby ruby = ctx.runtime;
-        final JrubyEventExtLibrary.RubyEvent rubyEvent = (JrubyEventExtLibrary.RubyEvent) event;
         try (final Connection conn = pool.getConnection()) {
             try (final PreparedStatement ps = conn.prepareStatement(this.statement, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-                mapParameterArgs(ctx, (JrubyEventExtLibrary.RubyEvent) event, ps, lookupFailures);
+                mapParameterArgs(ctx, rubyEvent, ps, lookupFailures);
                 if (lookupFailures.parametersAreValid()) {
                     final ResultSet rs = ps.executeQuery();
                     final RubyArray array = ruby.newArray();
@@ -80,12 +82,17 @@ public class FetchUpdate implements Lookup {
                     final int columnCount = meta.getColumnCount();
                     while (rs.next()) {
                         final RubyHash hash = RubyHash.newSmallHash(ruby);
-                        for (int i = 0; i < columnCount; i++) {
-                            final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, i + 1, rs);
-                            if (result.isFailure()) {
-                                lookupFailures.invalidColumnPush(result.getMessage());
-                            } else {
-                                hash.fastASetCheckString(ruby, ruby.newString(result.getField().toLowerCase(Locale.ENGLISH)), result.getValue());
+                        for (int index = 1; index <= columnCount; index++) {
+                            final String columnLabel = meta.getColumnLabel(index);
+                            if (!invalidColumnLabels.contains(columnLabel)) {
+                                // no need to bother converting this column, we know from a previous run that is can't be coerced.
+                                final ConvertResult result = TypeConverter.convertToRuby(ruby, columnLabel, meta, index, rs);
+                                lookupFailures.columnPush(columnLabel); // an internal noop if we are not collecting column failures (the ruby side directs this)
+                                if (result.isFailure()) {
+                                    lookupFailures.invalidColumnPush(result.getMessage());
+                                } else {
+                                    hash.fastASetCheckString(ruby, ruby.newString(result.getField().toLowerCase(Locale.ENGLISH)), result.getValue());
+                                }
                             }
                         }
                         if (!hash.isEmpty()) {
@@ -93,6 +100,9 @@ public class FetchUpdate implements Lookup {
                         }
                     }
                     rubyEvent.ruby_set_field(ctx, this.target, array);
+                }
+                if (lookupFailures.isCheckingColumns()) {
+                    this.invalidColumnLabels.addAll(lookupFailures.getInvalidColumns());
                 }
             }
         } catch (final SQLException e) {

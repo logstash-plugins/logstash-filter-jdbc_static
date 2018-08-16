@@ -24,9 +24,8 @@ class TypeConverter {
     private TypeConverter() {
     }
 
-    static ConvertResult convertToRuby(final Ruby ruby, final ResultSetMetaData meta, final int index, final ResultSet rs) throws SQLException {
+    static ConvertResult convertToRuby(final Ruby ruby, final String field, final ResultSetMetaData meta, final int index, final ResultSet rs) throws SQLException {
         final ConvertResult result = new TypeConvertResult(ruby.getNil());
-        final String field = meta.getColumnLabel(index);
         final int columnType = meta.getColumnType(index);
         final TypeConverter.Converter converter = CONVERTER_MAP.get(columnType);
         if (converter != null) {

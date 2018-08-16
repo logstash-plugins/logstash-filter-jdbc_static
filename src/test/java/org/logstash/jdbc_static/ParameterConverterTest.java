@@ -21,24 +21,15 @@ import java.sql.Types;
 import static org.logstash.ext.JrubyTimestampExtLibrary.RubyTimestamp;
 import static org.logstash.jdbc_static.TestCommon.*;
 
-
 @RunWith(MockitoJUnitRunner.class)
 public class ParameterConverterTest {
-    private Ruby ruby;
+    private Ruby ruby = Ruby.getGlobalRuntime();
 
     @Before
     public void setUp() throws Exception {
-        ruby = Ruby.newInstance();
         loadRubyBigDecimal(ruby);
-        boolean progress = isLogstashTimestampLoaded(ruby);
-        if (!progress) {
-            progress = loadViaRubyUtil(ruby);
-        }
-        if (!progress) {
-            loadViaLibraryLoad(ruby);
-        }
+        tryLoadRubyTimestampLibrary(ruby);
     }
-
 
     @Mock
     private PreparedStatement ps;

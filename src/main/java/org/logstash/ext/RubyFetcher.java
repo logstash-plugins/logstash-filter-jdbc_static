@@ -110,22 +110,22 @@ public final class RubyFetcher extends RubyObject {
         final RubyHash options = (RubyHash) optionsHash;
 
         final IRubyObject rubyId = options.fastARef(ruby.newString("id"));
-        if (rubyId == null) {
+        if (rubyId == null || rubyId.isNil()) {
             throw new RaiseException(ruby, ruby.getArgumentError(), "Required option 'id' is missing", false);
         }
 
         final IRubyObject rubyQuery = options.fastARef(ruby.newString("query"));
-        if (rubyQuery == null) {
+        if (rubyQuery == null || rubyQuery.isNil()) {
             throw new RaiseException(ruby, ruby.getArgumentError(), "Required option 'query' is missing", false);
         }
 
         final IRubyObject rubyParameters = options.fastARef(ruby.newString("parameters"));
-        if (rubyParameters == null) {
+        if (rubyParameters == null || rubyParameters.isNil()) {
             throw new RaiseException(ruby, ruby.getArgumentError(), "Required option 'parameters' is missing", false);
         }
 
         final IRubyObject rubyTarget = options.fastARef(ruby.newString("target"));
-        if (rubyTarget == null) {
+        if (rubyTarget == null || rubyTarget.isNil()) {
             throw new RaiseException(ruby, ruby.getArgumentError(), "Required option 'target' is missing", false);
         }
         final String id = rubyId.toString();
@@ -134,17 +134,18 @@ public final class RubyFetcher extends RubyObject {
         return ctx.nil;
     }
 
-    // def fetch_and_update(id, event) // returns a LookupFailures
-    @JRubyMethod(name = "fetch_and_update", required = 2)
-    public IRubyObject fetchAndUpdate(final ThreadContext ctx, final IRubyObject id, final IRubyObject event) {
+    // def fetch_and_update(id, event, lookup_failure) // updates the LookupFailures instance
+    @JRubyMethod(name = "fetch_and_update", required = 3)
+    public IRubyObject fetchAndUpdate(final ThreadContext ctx, final IRubyObject id, final IRubyObject event, final IRubyObject result) {
         final String key = id.toString();
-        final LookupFailures lookupFailures = new LookupFailures(ctx.runtime, lookupFailuresRubyClass);
+        final JrubyEventExtLibrary.RubyEvent rubyEvent = (JrubyEventExtLibrary.RubyEvent) event;
+        final LookupFailures lookupFailures = (LookupFailures) result;
         final Lookup lookup = lookups.get(key);
         if (lookup == null) {
             lookupFailures.lookupIdIsInvalid();
         } else {
-            lookup.fetchAndUpdate(ctx, pool, event, lookupFailures);
+            lookup.fetchAndUpdate(ctx, pool, rubyEvent, lookupFailures);
         }
-        return lookupFailures;
+        return ctx.nil;
     }
 }

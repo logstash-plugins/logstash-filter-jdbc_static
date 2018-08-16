@@ -7,9 +7,8 @@ module LogStash module Filters module Jdbc
       @records = records
     end
 
-    def fetch_with_lock(lookup_id, event)
+    def fetch_with_lock(lookup_id, event, failures)
       event.set(@target, @records)
-      LookupFailures.new
     end
   end
 end end end

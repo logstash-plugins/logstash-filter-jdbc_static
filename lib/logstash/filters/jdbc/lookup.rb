@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 require "logstash/util/loggable"
+require "concurrent"
 
 module LogStash module Filters module Jdbc
   class Lookup
@@ -35,6 +36,14 @@ module LogStash module Filters module Jdbc
       @valid = false
       @option_errors = []
       @default_result = nil
+      # we only need to check column validity once because if the config is creating a local
+      # db table with column data type we can't coerce this is not transient (event dependent)
+      # like invalid parameters is. The Java side does not really need to fill in the invalid columns each time.
+      @column_validity_checked = Concurrent::AtomicBoolean.new
+      # normally all the columns in the local db are coercible to Logstash Event data types
+      # this flag becomes false in the very unlikely case that none of the columns are coercible
+      # this is a error and the defaults should be used
+      @some_valid_columns = true
       parse_options
     end
 
@@ -60,44 +69,69 @@ module LogStash module Filters module Jdbc
       @option_errors.join(", ")
     end
 
-    # LookupFailures API
-    # invalid_parameters # array of invalid parameters
-    # invalid_columns # array of unacceptable column datatype messages, this array is converted from a java HashSet to ruby on demand
-    # invalid_id_for_lookup? # was the id supplied unregistered?
-    # any_invalid_columns? # are there any unacceptable columns in the resultset?
-    # any_invalid_parameters? # are there any parameters that did not
-    #                           A) interpolate well, B) resolve to nil, array or hash,
-    #                           C) have a type we don't coerce to a SQL type (unlikely, as we cover what Valuefier handles)
+    # @param [ReadWriteDatabase] local, the local derby database
+    # @param [LogStash::Event] event, the current event being enhanced by this lookup
+    # @return [Boolean] returns true when the event contains the looked up fields/values or the default value was applied. False in all other cases
+    # meaning that only if all lookups enhance successfully then `filter_matched` is called
     def enhance(local, event)
+      # LookupFailures API (JRuby extension)
+      # successful?,  no errors, event was updated with looked up fields/values
+      # invalid_parameters, array of invalid parameters
+      # checking_columns?, has valid/invalid columns been collected for this instance
+      # check_columns, we only need to do this once
+      # all_columns, array of columns attempted to convert to Ruby, if collected, this array is converted from a java HashSet to ruby on demand
+      # invalid_columns, array of unacceptable column datatype messages, if collected, this array is converted from a java HashSet to ruby on demand
+      # invalid_id_for_lookup?, was the id supplied unregistered? Very unlikely.
+      # any_invalid_columns?, are there any unacceptable columns in the resultset?
+      # any_invalid_parameters?, are there any parameters that did not...
+      #      A) interpolate well
+      #      B) resolve to nil, array or hash,
+      #      C) have a type we don't coerce to a SQL type (unlikely, as we cover what Valuefier handles)
       begin
-        result = local.fetch_with_lock(@id, event) # returns an instance of LookupFailures, defined in JRuby extension
-      rescue StandardError
+        result = if @column_validity_checked.true?
+                  LookupFailures.new
+                else
+                  @column_validity_checked.make_true
+                  LookupFailures.new.check_columns
+                end
+        local.fetch_with_lock(@id, event, result) # updates the instance of LookupFailures (see comments above), defined in JRuby extension
+        return true if result.successful?
+      rescue StandardError => e
         # a SQLException re-thrown as as a StandardError, the cause and backtrace has been logged already in Java
         # this error holds no meaningful info.
         tag_failure(event)
         return tag_and_set_default(event)
       end
 
-      if result.invalid_id_for_lookup?
-        logger.error("This local lookup has not been registered correctly, this is abnormal", "local_lookup id" => @id)
-        tag_failure(event)
-        return tag_and_set_default(event)
-      end
-
       if result.any_invalid_parameters?
         logger.warn("Parameters for the statement cannot be prepared, interpolation may have failed or the value might be nil, array or hash", "parameters" => result.invalid_parameters, "event" => event.to_hash)
-        tag_failure(event)
-        return tag_and_set_default(event)
+        # if this is a checking columns run and there are invalid parameters then the prepared statement is not
+        # even executed so columns cannot validated this time - need to check columns again on next event.
+        @column_validity_checked.make_false if result.checking_columns?
+      else
+        if result.checking_columns? && result.any_invalid_columns?
+          # this means that a local db schema has been created with one or more datatypes
+          # that we can't coerce into acceptable Event datatypes. Other field/values are added to the Event.
+          invalid_columns = result.invalid_columns
+          all_columns = result.all_columns
+          @some_valid_columns = all_columns.size > invalid_columns.size
+          logger.error("The statement is returning data types that cannot be stored in an event", "invalid columns" => invalid_columns, "all columns" => all_columns)
+        end
       end
-      # this means that a local db schema has been created with one or more datatypes
-      # that we can't coerce into acceptable Event datatypes. Other field/values are added to the Event.
-      # Should we tag here or WARN only?
-      if result.any_invalid_columns?
-        logger.warn("The statement is returning datatypes that cannot be stored in an event", "invalid columns" => result.invalid_columns)
-        tag_failure(event)
-        return false
+
+      if result.invalid_id_for_lookup?
+        logger.error("This local lookup has not been registered correctly, this is abnormal", "local_lookup id" => @id)
       end
-      true
+
+      tag_failure(event)
+
+      if @some_valid_columns
+        # Some fields are filled in and so this is tagged failure
+        # but not a use the defaults failure
+        return true
+      end
+
+      tag_and_set_default(event)
     end
 
     private

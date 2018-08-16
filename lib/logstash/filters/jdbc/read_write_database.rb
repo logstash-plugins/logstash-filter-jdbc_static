@@ -20,11 +20,11 @@ module LogStash module Filters module Jdbc
 
     alias populate_all repopulate_all
 
-    def fetch_with_lock(lookup_id, event)
+    def fetch_with_lock(lookup_id, event, result)
       @rwlock.readLock().lock()
       # any exceptions should bubble up because we need to set failure tags etc.
       # see `post_create`,
-      @fetcher.fetch_and_update(lookup_id, event)
+      @fetcher.fetch_and_update(lookup_id, event, result)
     ensure
       @rwlock.readLock().unlock()
     end

@@ -80,12 +80,14 @@ module LogStash module Filters module Jdbc
         }
       end
       let(:event) { LogStash::Event.new }
-      let(:lookup_failures) { double("lookup_failures", failure_double_behaviour) }
+      let(:general_behaviour) { { "check_columns" => self } }
+      let(:lookup_failures) { double("lookup_failures", general_behaviour.merge(failure_double_behaviour)) }
 
       subject(:lookup) { described_class.new(lookup_hash, {}, "lookup-1") }
 
       before(:each) do
-        allow(local_db).to receive(:fetch_with_lock).once.and_return(lookup_failures)
+        allow(local_db).to receive(:fetch_with_lock).once
+        allow(LookupFailures).to receive(:new).and_return(lookup_failures)
       end
 
       context "when lookup id is invalid" do
@@ -137,7 +139,6 @@ module LogStash module Filters module Jdbc
     end
 
     describe "normal operations" do
-
       let(:lookup_hash) do
         {
           "query" => "select * from servers WHERE ip LIKE :ip",

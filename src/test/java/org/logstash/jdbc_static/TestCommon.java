@@ -2,7 +2,7 @@ package org.logstash.jdbc_static;
 
 import org.jruby.Ruby;
 import org.jruby.RubyClass;
-import org.jruby.RubyModule;
+import org.jruby.exceptions.RaiseException;
 import org.jruby.ext.bigdecimal.RubyBigDecimal;
 import org.logstash.ext.JrubyTimestampExtLibrary;
 
@@ -16,25 +16,26 @@ import java.lang.reflect.Method;
   I would like to know if there is a better mechanism.
  */
 public class TestCommon {
-    public static Ruby ruby;
+
+    public static void tryLoadRubyTimestampLibrary(Ruby ruby) {
+        if (isLogstashTimestampLoaded(ruby)) return;
+        if (loadViaRubyUtil(ruby)) return;
+        loadViaLibraryLoad(ruby);
+    }
 
     public static boolean isLogstashTimestampLoaded(Ruby ruby) {
-        RubyModule ls = ruby.getModule("LogStash");
-        if (ls != null) {
-            RubyClass ts = ruby.getClass("Timestamp");
-            if (ts != null) {
-                return true;
-            }
+        try {
+            ruby.getClassFromPath("LogStash::Timestamp");
+        } catch (RaiseException e) {
+            return false;
         }
-        return false;
+        return true;
     }
 
     public static boolean loadViaRubyUtil(Ruby ruby) {
         try {
             Class.forName("org.logstash.RubyUtil");
             return isLogstashTimestampLoaded(ruby);
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }

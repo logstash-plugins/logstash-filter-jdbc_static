@@ -21,15 +21,13 @@ import java.sql.Types;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.logstash.ext.JrubyTimestampExtLibrary.RubyTimestamp;
-import static org.logstash.jdbc_static.TestCommon.isLogstashTimestampLoaded;
 import static org.logstash.jdbc_static.TestCommon.loadRubyBigDecimal;
-import static org.logstash.jdbc_static.TestCommon.loadViaLibraryLoad;
-import static org.logstash.jdbc_static.TestCommon.loadViaRubyUtil;
+import static org.logstash.jdbc_static.TestCommon.tryLoadRubyTimestampLibrary;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TypeConverterTest {
-    private Ruby ruby;
+    private Ruby ruby = Ruby.getGlobalRuntime();
 
     @Mock
     private ResultSetMetaData meta;
@@ -42,16 +40,8 @@ public class TypeConverterTest {
 
     @Before
     public void setUp() throws Exception {
-        ruby = Ruby.newInstance();
         loadRubyBigDecimal(ruby);
-        boolean progress = isLogstashTimestampLoaded(ruby);
-        if (!progress) {
-            progress = loadViaRubyUtil(ruby);
-        }
-        if (!progress) {
-            loadViaLibraryLoad(ruby);
-        }
-        when(meta.getColumnLabel(index)).thenReturn(field);
+        tryLoadRubyTimestampLibrary(ruby);
     }
 
     @Test
@@ -60,7 +50,7 @@ public class TypeConverterTest {
                 .thenReturn(Types.TINYINT, Types.SMALLINT, Types.INTEGER);
         when(rs.getLong(index)).thenReturn(42L);
         for (int i = 0; i < 3; i++) {
-            final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+            final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
             assertThat(result.getMessage()).isEmpty();
             assertThat(result.getField()).isEqualTo(field);
             assertThat(result.getValue()).isEqualTo(ruby.newFixnum(42L));
@@ -72,7 +62,7 @@ public class TypeConverterTest {
         when(meta.getColumnType(index)).thenReturn(Types.REAL, Types.FLOAT, Types.DOUBLE);
         when(rs.getDouble(index)).thenReturn(42.0d);
         for (int i = 0; i < 3; i++) {
-            final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+            final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
             assertThat(result.getMessage()).isEmpty();
             assertThat(result.getField()).isEqualTo(field);
             assertThat(result.getValue()).isEqualTo(ruby.newFloat(42.0d));
@@ -84,7 +74,7 @@ public class TypeConverterTest {
         when(meta.getColumnType(index)).thenReturn(Types.CHAR, Types.VARCHAR);
         when(rs.getString(index)).thenReturn("foo");
         for (int i = 0; i < 2; i++) {
-            final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+            final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
             assertThat(result.getMessage()).isEmpty();
             assertThat(result.getField()).isEqualTo(field);
             assertThat(result.getValue()).isEqualTo(ruby.newString("foo"));
@@ -97,7 +87,7 @@ public class TypeConverterTest {
         when(rs.getNString(index)).thenReturn("foo", "bar");
         final String[] actuals = {"foo", "bar"};
         for (int i = 0; i < 2; i++) {
-            final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+            final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
             assertThat(result.getMessage()).isEmpty();
             assertThat(field).isEqualTo(result.getField());
             assertThat(ruby.newString(actuals[i])).isEqualTo(result.getValue());
@@ -108,7 +98,7 @@ public class TypeConverterTest {
     public void convertBigIntToRuby() throws SQLException {
         when(meta.getColumnType(index)).thenReturn(Types.BIGINT);
         when(rs.getString(index)).thenReturn("123456789");
-        final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+        final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
         assertThat(result.getMessage()).isEmpty();
         assertThat(result.getField()).isEqualTo(field);
         assertThat(result.getValue()).isEqualTo(RubyBignum.bignorm(ruby, new BigInteger("123456789")));
@@ -119,7 +109,7 @@ public class TypeConverterTest {
         when(meta.getColumnType(index)).thenReturn(Types.NUMERIC, Types.DECIMAL);
         when(rs.getBigDecimal(index)).thenReturn(BigDecimal.valueOf(123456789.34d));
         for (int i = 0; i < 2; i++) {
-            final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+            final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
             assertThat(result.getMessage()).isEmpty();
             assertThat(result.getField()).isEqualTo(field);
             assertThat(result.getValue()).isEqualTo(new RubyBigDecimal(ruby, new BigDecimal("123456789.34")));
@@ -130,7 +120,7 @@ public class TypeConverterTest {
     public void convertDateToRuby() throws SQLException {
         when(meta.getColumnType(index)).thenReturn(Types.DATE);
         when(rs.getDate(index)).thenReturn(new Date(123456789L));
-        final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+        final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
         assertThat(result.getMessage()).isEmpty();
         assertThat(result.getField()).isEqualTo(field);
         final Timestamp expected = new Timestamp(123456789L);
@@ -142,7 +132,7 @@ public class TypeConverterTest {
     public void convertTimeToRuby() throws SQLException {
         when(meta.getColumnType(index)).thenReturn(Types.TIME);
         when(rs.getTime(index)).thenReturn(new Time(123456789L));
-        final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+        final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
         assertThat(result.getMessage()).isEmpty();
         assertThat(result.getField()).isEqualTo(field);
         final Timestamp expected = new Timestamp(123456789L);
@@ -154,7 +144,7 @@ public class TypeConverterTest {
     public void convertTimestampToRuby() throws SQLException {
         when(meta.getColumnType(index)).thenReturn(Types.TIMESTAMP);
         when(rs.getTimestamp(index)).thenReturn(new java.sql.Timestamp(123456789L));
-        final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+        final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
         assertThat(result.getMessage()).isEmpty();
         assertThat(result.getField()).isEqualTo(field);
         final Timestamp expected = new Timestamp(123456789L);
@@ -168,8 +158,8 @@ public class TypeConverterTest {
         when(rs.getBoolean(index)).thenReturn(true, false);
         final ConvertResult result1;
         final ConvertResult result2;
-        result1 = TypeConverter.convertToRuby(ruby, meta, index, rs);
-        result2 = TypeConverter.convertToRuby(ruby, meta, index, rs);
+        result1 = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
+        result2 = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
         assertThat(result1.getMessage()).isEmpty();
         assertThat(result2.getMessage()).isEmpty();
         assertThat(field).isEqualTo(result1.getField());
@@ -182,7 +172,7 @@ public class TypeConverterTest {
     public void convertNullToRuby() throws SQLException {
         when(meta.getColumnType(index)).thenReturn(Types.BIGINT);
         when(rs.getString(index)).thenReturn(null);
-        final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+        final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
         assertThat(result.getMessage()).isEmpty();
         assertThat(field).isEqualTo(result.getField());
         assertThat(ruby.getNil()).isEqualTo(result.getValue());
@@ -192,7 +182,7 @@ public class TypeConverterTest {
     public void convertUnsupportedSqlTypeToRuby() throws SQLException {
         when(meta.getColumnTypeName(index)).thenReturn("Oops");
         when(meta.getColumnType(index)).thenReturn(Types.ARRAY);
-        final ConvertResult result = TypeConverter.convertToRuby(ruby, meta, index, rs);
+        final ConvertResult result = TypeConverter.convertToRuby(ruby, field, meta, index, rs);
         assertThat(result.isFailure()).isTrue();
         assertThat("Could not convert SQL Type into suitable Ruby type to store in the event, column name is 'field1', SQL type is 'Oops'")
                 .isEqualTo(result.getMessage());
