@@ -1,7 +1,12 @@
 # encoding: utf-8
 require_relative "../env_helper"
 require "logstash/devutils/rspec/spec_helper"
+require "logstash-filter-jdbc_static_jars"
+require "jruby_jdbc_static"
+require_relative "../fake_local_db"
 require "logstash/filters/jdbc/lookup"
+
+# LogStash::Logging::Logger::configure_logging("INFO")
 
 module LogStash module Filters module Jdbc
   describe Lookup do
@@ -68,30 +73,72 @@ module LogStash module Filters module Jdbc
       let(:local_db) { double("local_db") }
       let(:lookup_hash) do
         {
-        "query" => "select * from servers WHERE ip LIKE :ip",
-        "parameters" => {"ip" => "%%{[ip]}"},
-        "target" => "server",
-        "tag_on_failure" => ["_jdbcstaticfailure_server"]
+          "query" => "select * from servers WHERE ip LIKE :ip",
+          "parameters" => {"ip" => "%%{[ip]}"},
+          "target" => "server",
+          "tag_on_failure" => ["_jdbcstaticfailure_server"]
         }
       end
-      let(:event) { LogStash::Event.new()}
-      let(:records) { [{"name" => "ldn-1-23", "rack" => "2:1:6"}] }
+      let(:event) { LogStash::Event.new }
+      let(:general_behaviour) { { "check_columns" => self } }
+      let(:lookup_failures) { double("lookup_failures", general_behaviour.merge(failure_double_behaviour)) }
 
       subject(:lookup) { described_class.new(lookup_hash, {}, "lookup-1") }
 
       before(:each) do
-        allow(local_db).to receive(:fetch).once.and_return(records)
+        allow(local_db).to receive(:fetch_with_lock).once
+        allow(LookupFailures).to receive(:new).and_return(lookup_failures)
       end
 
-      it "should not enhance an event and it should tag" do
-        subject.enhance(local_db, event)
-        expect(event.get("tags")).to eq(["_jdbcstaticfailure_server"])
-        expect(event.get("server")).to be_nil
+      context "when lookup id is invalid" do
+        let(:failure_double_behaviour) do
+          {
+          "invalid_id_for_lookup?" => true,
+          "any_invalid_parameters?" => false,
+          "any_invalid_columns?" => false
+          }
+        end
+        it "should not enhance an event and it should tag" do
+          subject.enhance(local_db, event)
+          expect(event.get("tags")).to eq(["_jdbcstaticfailure_server"])
+          expect(event.get("server")).to be_nil
+        end
+      end
+
+      context "when parameters are invalid" do
+        let(:failure_double_behaviour) do
+          {
+          "invalid_id_for_lookup?" => false,
+          "any_invalid_parameters?" => true,
+          "any_invalid_columns?" => false,
+          "invalid_parameters" => ["ip"]
+          }
+        end
+        it "should not enhance an event and it should tag" do
+          subject.enhance(local_db, event)
+          expect(event.get("tags")).to eq(["_jdbcstaticfailure_server"])
+          expect(event.get("server")).to be_nil
+        end
+      end
+
+      context "when columns are invalid" do
+        let(:failure_double_behaviour) do
+          {
+          "invalid_id_for_lookup?" => false,
+          "any_invalid_parameters?" => false,
+          "any_invalid_columns?" => true,
+          "invalid_columns" => ["configuration_blob"]
+          }
+        end
+        it "should not enhance an event and it should tag" do
+          subject.enhance(local_db, event)
+          expect(event.get("tags")).to eq(["_jdbcstaticfailure_server"])
+          expect(event.get("server")).to be_nil
+        end
       end
     end
 
     describe "normal operations" do
-      let(:local_db) { double("local_db") }
       let(:lookup_hash) do
         {
           "query" => "select * from servers WHERE ip LIKE :ip",
@@ -100,14 +147,11 @@ module LogStash module Filters module Jdbc
           "tag_on_failure" => ["_jdbcstaticfailure_server"]
         }
       end
-      let(:event) { LogStash::Event.new()}
-      let(:records) { [{"name" => "ldn-1-23", "rack" => "2:1:6"}] }
+      let(:event) { LogStash::Event.new }
+      let(:records) { [{"description" => "AuthServer"}, {"description" => "PaymentServer"}] }
+      let(:local_db) { FakeLocalDb.new(lookup_hash["target"], records) }
 
       subject(:lookup) { described_class.new(lookup_hash, {}, "lookup-1") }
-
-      before(:each) do
-        allow(local_db).to receive(:fetch).once.and_return(records)
-      end
 
       it "should be valid" do
         expect(subject.valid?).to be_truthy

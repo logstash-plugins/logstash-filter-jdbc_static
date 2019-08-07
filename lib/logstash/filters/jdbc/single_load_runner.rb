@@ -11,6 +11,7 @@ module LogStash module Filters module Jdbc
       @loaders = loaders
       @preloaders = []
       @reload_counter = Concurrent::AtomicFixnum.new(0)
+      @stopping = Concurrent::AtomicBoolean.new
       preloaders.map do |pre|
         @preloaders << DbObject.new(pre)
       end
@@ -27,11 +28,17 @@ module LogStash module Filters module Jdbc
     end
 
     def call
+      # scheduler entry point
+      return if @stopping.true?
       repeated_load
     end
 
     def reload_count
       @reload_counter.value
+    end
+
+    def stop
+      @stopping.make_true
     end
 
     private

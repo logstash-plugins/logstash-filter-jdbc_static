@@ -1,5 +1,6 @@
 # encoding: utf-8
 require_relative "basic_database"
+require "jruby_jdbc_static"
 
 module LogStash module Filters module Jdbc
   class ReadWriteDatabase < BasicDatabase
@@ -19,10 +20,11 @@ module LogStash module Filters module Jdbc
 
     alias populate_all repopulate_all
 
-    def fetch(statement, parameters)
+    def fetch_with_lock(lookup_id, event, result)
       @rwlock.readLock().lock()
       # any exceptions should bubble up because we need to set failure tags etc.
-      @db[statement, parameters].all
+      # see `post_create`,
+      @fetcher.fetch_and_update(lookup_id, event, result)
     ensure
       @rwlock.readLock().unlock()
     end
@@ -33,6 +35,8 @@ module LogStash module Filters module Jdbc
         db_object.build(@db)
         if db_object.index_columns.empty?
           logger.warn("local_db_object '#{db_object.name}': `index_columns` is optional but on larger datasets consider adding an index on the lookup column, it will improve performance")
+        else
+          @tables_indexes[db_object.name] = db_object.index_columns
         end
       rescue *CONNECTION_ERRORS => err
         # we do not raise an error when there is a connection error, we hope that the connection works next time
@@ -50,6 +54,18 @@ module LogStash module Filters module Jdbc
       mutated_connection_string = connection_string.sub("____", unique_db_name)
       verify_connection(mutated_connection_string, driver_class, driver_library, user, password)
       connect("Connection error when connecting to lookup db")
+      opts = {
+        "username" => user,
+        "password" => password,
+        "jdbc_driver_library" => driver_library,
+        "jdbc_driver_class" => driver_class,
+        "jdbc_connection_string" => mutated_connection_string #.sub(";create=true", "")
+      }
+      @fetcher = Jdbc::Fetcher.new(opts)
+    end
+
+    def add_lookup(opts)
+      @fetcher.add_lookup(opts)
     end
 
     private
@@ -78,6 +94,18 @@ module LogStash module Filters module Jdbc
         @db.execute_ddl(import_cmd)
         FileUtils.rm_f(import_file)
         logger.info("loader #{loader.id}, imported all fetched records in: #{(Time.now.to_f - start).round(3)} seconds")
+        if @tables_indexes.include?(loader.table)
+          columns = @tables_indexes[loader.table]
+          columns.each do |col|
+            col_sym = col.to_sym
+            @db.alter_table(loader.table.to_sym) do
+              drop_index(col_sym)
+              add_index(col_sym)
+            end
+          end
+        end
+        update_stats_cmd = "CALL SYSCS_UTIL.SYSCS_UPDATE_STATISTICS(null,'#{loader.table.upcase}', null)"
+        @db.execute_ddl(update_stats_cmd)
       rescue *CONNECTION_ERRORS => err
         # we do not raise an error when there is a connection error, we hope that the connection works next time
         logger.error("Connection error when filling lookup db from loader #{loader.id}, query results", :exception => err.message, :backtrace => err.backtrace.take(8))
@@ -85,7 +113,7 @@ module LogStash module Filters module Jdbc
         # In theory all exceptions in Sequel should be wrapped in Sequel::Error
         # There are cases where exceptions occur in unprotected ensure sections
         msg = "Exception when filling lookup db from loader #{loader.id}, query results, original exception: #{err.class}, original message: #{err.message}"
-        logger.error(msg, :backtrace => err.backtrace.take(16))
+        logger.error(msg, :backtrace => err.backtrace) #.take(16)
         raise wrap_error(LoaderJdbcException, err, msg)
       ensure
         @rwlock.writeLock().unlock()
@@ -96,6 +124,7 @@ module LogStash module Filters module Jdbc
       super
       # get a fair reentrant read write lock
       @rwlock = java.util.concurrent.locks.ReentrantReadWriteLock.new(true)
+      @tables_indexes = {}
     end
   end
 end end end
