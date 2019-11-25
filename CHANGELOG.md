@@ -1,3 +1,6 @@
+## 1.1.0
+ - Added prepared statement support in local lookups [#53](https://github.com/logstash-plugins/logstash-filter-jdbc_static/pull/53)
+
 ## 1.0.7
  - Fixed issue with driver verification using Java 11 [#51](https://github.com/logstash-plugins/logstash-filter-jdbc_static/pull/51)
 
