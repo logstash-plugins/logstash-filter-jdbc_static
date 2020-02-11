@@ -9,6 +9,15 @@ This is a plugin for [Logstash](https://github.com/elastic/logstash).
 
 It is fully free and fully open source. The license is Apache 2.0, meaning you are pretty much free to use it however you want in whatever way.
 
+
+## JDBC Static Filter Plugin Has Moved
+
+This JDBC Static Filter Plugin is now a part of the [JDBC Integration Plugin][integration-source];
+this project remains open for backports of fixes from that project to the 5.x series where possible, but issues should first be filed on the [integration plugin][integration-issues].
+
+[integration-source]: https://github.com/logstash-plugins/logstash-integration-jdbc
+[integration-issues]: https://github.com/logstash-plugins/logstash-integration-jdbc/issues/
+
 ## Need Help?
 
 Need help? Try #logstash on freenode IRC or the https://discuss.elastic.co/c/logstash discussion forum.
