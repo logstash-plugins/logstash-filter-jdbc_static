@@ -1,6 +1,6 @@
 ## JDBC Static Filter Plugin's Source Has Moved
 
-This JDBC Static Filter Plugin is now a part of the [JDBC  Integration Plugin][integration-source]. 
+This JDBC Static Filter Plugin is now a part of the [JDBC Integration Plugin][integration-source]. 
 This project remains open for backports of fixes from that project to the `1.x` series where possible, but pull-requests should first be made on the [integration plugin][integration-pull-requests].
 
 If you have already made commits on a clone of this stand-alone repository, it's ok! Go ahead and open the Pull Request here, and open an Issue linking to it on the [integration plugin][integration-issues]. We'll work with you to sort it all out and to get the backport applied.
