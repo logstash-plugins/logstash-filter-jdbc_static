@@ -1,6 +1,18 @@
 :plugin: jdbc_static
 :type: filter
 
+
+/////////////////////////////////////////////////
+// Jdbc_static Filter Plugin Source Has Moved  //
+// ------------------------------------------- //
+// The Jdbc_static Filter Plugin is now a part //
+// of the JDBC Integration.                    //
+//                                             //
+// This stand-alone plugin project remains     //
+// open for backports to the 1.x series.       //
+/////////////////////////////////////////////////
+
+
 ///////////////////////////////////////////
 START - GENERATED VARIABLES, DO NOT EDIT!
 ///////////////////////////////////////////
