@@ -3,7 +3,7 @@ Lookup plugin which overwrites a loader query's result set into a local in-memor
 
 # Logstash Plugin
 
-[![Travis Build Status](https://travis-ci.org/logstash-plugins/logstash-filter-jdbc_static.svg)](https://travis-ci.org/logstash-plugins/logstash-filter-jdbc_static)
+[![Travis Build Status](https://travis-ci.com/logstash-plugins/logstash-filter-jdbc_static.svg)](https://travis-ci.com/logstash-plugins/logstash-filter-jdbc_static)
 
 This is a plugin for [Logstash](https://github.com/elastic/logstash).
 
